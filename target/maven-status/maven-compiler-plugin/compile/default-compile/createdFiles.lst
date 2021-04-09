@@ -1,0 +1,13 @@
+mg/manohisoa/databasePersistence/annotation/Table.class
+mg/manohisoa/databasePersistence/annotation/Tableau.class
+mg/manohisoa/databasePersistence/cache/Cache.class
+mg/manohisoa/databasePersistence/repository/DataRepository.class
+mg/manohisoa/databasePersistence/annotation/Entity.class
+mg/manohisoa/databasePersistence/annotation/Id.class
+mg/manohisoa/databasePersistence/GenericRepo.class
+mg/manohisoa/databasePersistence/annotation/Column.class
+mg/manohisoa/databasePersistence/FwConfiguration.class
+mg/manohisoa/databasePersistence/repository/DataRepositoryImpl.class
+mg/manohisoa/databasePersistence/annotation/Cacheable.class
+mg/manohisoa/databasePersistence/Main.class
+mg/manohisoa/databasePersistence/outil/Utilitaire.class

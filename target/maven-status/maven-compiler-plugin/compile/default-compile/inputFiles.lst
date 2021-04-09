@@ -1,0 +1,13 @@
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/repository/DataRepository.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/annotation/Id.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/Main.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/repository/DataRepositoryImpl.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/annotation/Table.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/GenericRepo.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/outil/Utilitaire.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/annotation/Column.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/cache/Cache.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/annotation/Entity.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/annotation/Tableau.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/annotation/Cacheable.java
+/media/manohisoa/Ngam/PersoProject/databasePersistence/src/main/java/mg/manohisoa/databasePersistence/FwConfiguration.java

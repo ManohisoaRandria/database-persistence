@@ -7,6 +7,7 @@ import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -350,24 +351,28 @@ public class GenericRepo {
 	    }
 	    ps = c.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
 	    String req = ps.toString();
-	    LOGGER.info("SQL: {}", sql);
+	    LOGGER.debug("SQL: {}", sql);
 
 	    o = getResultFromCache(tableName, req);
 	    if (o == null) {
 
 		rs = executeStatementSelect(ps, condition, tableName, instance);
-		List<Field> field = getAllField(instance, rs.getMetaData().getColumnCount(), tableName);
+		List<Field> field = getAllField(instance, rs.getMetaData(), tableName);
 		E obj;
 		Method m;
 
 		o = new ArrayList<>();
 		while (rs.next()) {
-		    obj = (E) Class.forName(instance.getName()).newInstance();
+		    obj = (E) instance.getConstructor(new Class[0]).newInstance();
 		    for (int i = 0; i < field.size(); i++) {
 			annot = (Column) field.get(i).getAnnotation(Column.class);
 			if (annot != null) {
 			    colonne = annot.name();
-			    m = instance.getMethod("set" + toUpperCase(field.get(i).getName()), field.get(i).getType());
+			    m = obj.getClass().getMethod("set" + toUpperCase(field.get(i).getName()), field.get(i).getType());
+//			    LOGGER.info("Methode name: {}", m.getDeclaringClass());
+//			    LOGGER.info("Colonne: {}", colonne);
+//			    LOGGER.info("Type of field {}", field.get(i).getType().getName());
+//			    LOGGER.info("object: {}", obj.getClass().getName());
 			    getAndSetResult(obj, rs, m, colonne, field.get(i).getType().getName());
 			}
 		    }
@@ -409,17 +414,18 @@ public class GenericRepo {
 	    }
 	    ps = c.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
 	    String req = ps.toString();
+	    LOGGER.debug("SQL: {}", sql);
 	    o = getResultFromCache(tableName, req);
 	    if (o == null) {
 
 		rs = executeStatementSelect(ps, condition, tableName, instance);
-		List<Field> field = getAllField(instance, rs.getMetaData().getColumnCount(), tableName);
+		List<Field> field = getAllField(instance, rs.getMetaData(), tableName);
 		E obj;
 		Method m;
 
 		o = new ArrayList<>();
 		while (rs.next()) {
-		    obj = (E) Class.forName(instance.getName()).newInstance();
+		    obj = (E) instance.getConstructor(new Class[0]).newInstance();
 		    for (int i = 0; i < field.size(); i++) {
 			annot = (Column) field.get(i).getAnnotation(Column.class);
 			if (annot != null) {
@@ -522,7 +528,7 @@ public class GenericRepo {
 
 		o = new ArrayList<>();
 		while (rs.next()) {
-		    objRetTemp = (E) Class.forName(instance.getName()).newInstance();
+		    objRetTemp = (E) instance.getConstructor(new Class[0]).newInstance();
 		    for (int i = 0; i < field.size(); i++) {
 			annot = (Column) field.get(i).getAnnotation(Column.class);
 			if (annot != null) {
@@ -609,7 +615,8 @@ public class GenericRepo {
 
 		//int b = 1;
 		while (result.next()) {
-		    E temp = (E) classeO.getDeclaredConstructor().newInstance();
+
+		    E temp = (E) classeO.getConstructor(new Class[0]).newInstance();
 		    for (Field f1 : f) {
 			annot = (Column) f1.getAnnotation(Column.class);
 			if (annot != null) {
@@ -687,6 +694,7 @@ public class GenericRepo {
 		}
 	    }
 	    requete += ")";
+	    LOGGER.info("SQL: {}", requete);
 	    ps = c.prepareStatement(requete);
 	    nbcolonne = 1;
 	    for (int i = 0; i < field.size(); i++) {
@@ -769,6 +777,7 @@ public class GenericRepo {
 		}
 	    }
 	    requete += ")";
+	    LOGGER.info("SQL: {}", requete);
 	    ps = c.prepareStatement(requete);
 	    nbcolonne = 1;
 	    for (int i = 0; i < field.size(); i++) {
@@ -1068,6 +1077,7 @@ public class GenericRepo {
 		}
 	    }
 	    sql += " where " + afterWhere;
+	    LOGGER.info("SQL: {}", sql);
 	    prs = con.prepareStatement(sql);
 	    int mo = 0;
 	    for (int i = 0; i < condition.size(); i++) {
@@ -1112,7 +1122,9 @@ public class GenericRepo {
 	    if (condition != null && !condition.trim().equals("")) {
 		sql += " where " + condition;
 	    }
+	    LOGGER.info("SQL: {}", sql);
 	    prs = con.prepareStatement(sql);
+
 	    for (int i = 0; i < values.length; i++) {
 		setPreparedStatement(prs, values[i].getClass().getTypeName(), 1 + i, values[i]);
 	    }
@@ -1147,6 +1159,7 @@ public class GenericRepo {
 	    if (condition != null && !condition.trim().equals("")) {
 		sql += " where " + condition;
 	    }
+	    LOGGER.info("SQL: {}", sql);
 	    prs = con.prepareStatement(sql);
 	    prs.executeUpdate();
 	    refreshCache(nomtable);
@@ -1175,6 +1188,7 @@ public class GenericRepo {
 	    if (!(condition == null || condition.trim().equalsIgnoreCase(""))) {
 		sql += " where " + condition;
 	    }
+	    LOGGER.info("SQL: {}", sql);
 	    prs = con.prepareStatement(sql);
 	    prs.executeUpdate();
 	    refreshCache(nomtable);
@@ -1227,6 +1241,7 @@ public class GenericRepo {
 		    }
 		}
 	    }
+	    LOGGER.info("SQL: {}", sql);
 	    prs = con.prepareStatement(sql);
 	    for (int i = 0; i < condition.size(); i++) {
 		setPreparedStatement(prs, field.get(indfield.get(i)).getType().getName(), i + 1, condition.get(i));
@@ -1372,26 +1387,36 @@ public class GenericRepo {
      * @return
      * @throws Exception
      */
-    private static List<Field> getAllField(Class instance, int columncount, String tablename) throws Exception {
+    private static List<Field> getAllField(Class instance, ResultSetMetaData meta, String tablename) throws Exception {
 	Class superClasse;
 	List<Field> field = new ArrayList();
 	superClasse = instance;
 	int nbannot = 0;
+	int nbannotValide = 0;
+	int columncount = meta.getColumnCount();
 	while (!superClasse.getName().equals("java.lang.Object")) {
 	    Field[] attribut = superClasse.getDeclaredFields();
 	    for (int i = 0; i < attribut.length; i++) {
 		if (attribut[i].getAnnotation(Column.class) != null) {
 		    //ze manana annotation collone ihany no alaina, tsy maka anle tableau ohatra
-		    field.add(attribut[i]);
+		    //de ze misy any anaaty resultset ihany koa no alaina
+
 		    nbannot++;
+		    if (tableHasColumn(attribut[i].getAnnotation(Column.class).name(), meta)) {
+			field.add(attribut[i]);
+			nbannotValide++;
+		    }
 		}
 	    }
 	    superClasse = superClasse.getSuperclass();
 	}
 	if (nbannot == 0) {
 	    throw new Exception("Aucune Annotation d'Colonne Spécifiés !");
-	} else if (columncount != nbannot) {
-	    throw new Exception("Le Nombre d'Annotation d'Colonne trouvé en partant de la Classe " + instance.getName() + " et le Nombre de Colonne dans la Table " + tablename + " ne correspondent pas !");
+	}
+	if (columncount != nbannotValide) {
+//	    LOGGER.info("Le Nombre d'Annotation d'Colonne trouvé en partant de la Classe "
+//		    + "{} et le Nombre de Colonne dans la Table {} ne correspondent pas !", instance.getName(), tablename);
+//	    LOGGER.info("nombre total annotation {} | nombre annotation valide {} | nombre colonne dans table {}", nbannot, nbannotValide, columncount);
 	}
 	return field;
     }
@@ -1426,6 +1451,18 @@ public class GenericRepo {
 	return field;
     }
 
+    private static boolean tableHasColumn(String column, ResultSetMetaData meta) throws SQLException {
+	boolean result = false;
+	int columnCount = meta.getColumnCount();
+	for (int i = 0; i < columnCount; i++) {
+	    if (meta.getColumnLabel(i + 1).equals(column)) {
+		result = true;
+		break;
+	    }
+	}
+	return result;
+    }
+
     /**
      * Pour recuperer et Ajouter dans l'Objet obj le resultat obtenu
      *
@@ -1437,6 +1474,8 @@ public class GenericRepo {
      * @throws Exception
      */
     private static void getAndSetResult(Object obj, ResultSet rs, Method m, String colonne, String nomtypefield) throws Exception {
+//	LOGGER.info("obj: {}", obj.getClass().getSimpleName());
+//	LOGGER.info("obj: {}", obj.getClass());
 	switch (nomtypefield) {
 	    case "java.lang.String":
 		m.invoke(obj, rs.getString(colonne));

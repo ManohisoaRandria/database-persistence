@@ -4,144 +4,137 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.Date;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import mg.manohisoa.databasePersistence.annotation.Cacheable;
 import mg.manohisoa.databasePersistence.annotation.Column;
 import mg.manohisoa.databasePersistence.annotation.Entity;
-import mg.manohisoa.databasePersistence.annotation.Id;
 import mg.manohisoa.databasePersistence.annotation.Table;
-import mg.manohisoa.databasePersistence.annotation.Tableau;
 import mg.manohisoa.databasePersistence.cache.Cache;
+import mg.manohisoa.databasePersistence.outil.Utilitaire;
 import org.postgresql.util.PGInterval;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.w3c.dom.Document;
 
 public class GenericRepo {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GenericRepo.class);
 
     /**
-     * Nom de table Clé ,HashMap* valeur valeur : HashMap<String,Cache> ; String
-     * requete, Cache (DateTime Création, Object[] result)
+     * Hash map used in caching. The first Hashmap key is used to store the
+     * table name And the second is used to store the request in plain string as
+     * well as the request result
      */
     public static final HashMap<String, HashMap<String, Cache>> CACHE = new HashMap<>();
 
     /**
-     * Chercher si le nom de table existe dans le HM key = nom table
+     * Check if a request exist in cache
      *
      * @param hm
      * @param key
      * @return
      */
     private static Boolean checkKeyCache(HashMap hm, String key) {
-	return hm.containsKey(key.trim());
+        return hm.containsKey(key.trim());
     }
 
     /**
-     * Apres UPDATE, INSERT, ou DELETE Si la clé existe dans le HM , supprimer
-     * l'Element<K,V> correspondant
+     * Used after UPDATE, INSERT, ou DELETE remove the value of key: table name
+     * in the cache. This removes all the requests within the given table. We
+     * remove all the request in tha table from the cache because we don't know
+     * what line was deleted, inserted or updated
      *
      * @param key
      */
-    private static void refreshCache(String key) {
-	key = key.trim().toLowerCase();
-	if (checkKeyCache(CACHE, key)) {
-	    CACHE.remove(key);
-	}
+    private static void refreshCache(String tableName) {
+        tableName = tableName.trim().toLowerCase();
+        if (checkKeyCache(CACHE, tableName)) {
+            CACHE.remove(tableName);
+        }
     }
 
     /**
-     * Si la clé existe dans le HM , La requete existe dans la hashMap et que le
-     * cache correspondand n'est plus valide, efface la cache Assurer que la key
-     * et la requete existe dans le Hmap avant d'utiliser cette fonction
+     * refresh the cache for a single request instead of all request for a given
+     * table
      *
      * @param key
      * @param requete
      * @return
      */
-    private static boolean refreshCache(String key, String requete) {
-	key = key.trim().toLowerCase();
-	if (!checkDateCache(CACHE.get(key).get(requete.trim()))) {
-	    CACHE.get(key).remove(requete.trim());
-	    if (CACHE.get(key).isEmpty()) {
-		CACHE.remove(key);
-	    }
-	    return true;
-	} else {
-	    return false;
-	}
+    private static boolean refreshCache(String tableName, String request) {
+        tableName = tableName.trim().toLowerCase();
+        if (!isCacheValid(CACHE.get(tableName).get(request.trim()))) {
+            if (CACHE.get(tableName).isEmpty()) {
+                CACHE.remove(tableName);
+            } else {
+                CACHE.get(tableName).remove(request.trim());
+            }
+            return true;
+        } else {
+            return false;
+        }
     }
 
     /**
-     * checkValidité Cache,
+     * check the cache validity for a given request
      *
      * @param c
      * @return
      */
-    private static boolean checkDateCache(Cache c) {
-	boolean b = true;
-	if (c.getTempexp().before(getCurrentTimeStamp()) || c.getTempexp().equals(getCurrentTimeStamp())) {
-	    ///expiré
-	    b = false;
-	}
-	return b;
+    private static boolean isCacheValid(Cache c) {
+        return !(c.getTempexp().before(Utilitaire.getCurrentTimeStamp()) || c.getTempexp().equals(Utilitaire.getCurrentTimeStamp()));
     }
 
     /**
-     * Pour verifier si la requete existe déja dans le cache
+     * To verify if a request is already present in cache
      *
      * @param key
      * @param requete
      * @return
      */
-    private static boolean checkRequete(String key, String requete) {
-	key = key.trim().toLowerCase();
-	boolean rep = false;
-	if (checkKeyCache(CACHE, key)) {
-	    ///true
-	    HashMap hm = CACHE.get(key);
-	    if (checkKeyCache(hm, requete.trim())) {
-		rep = true;
-	    }
-	}
-	return rep;
+    private static boolean checkRequete(String tableName, String requete) {
+        tableName = tableName.trim().toLowerCase();
+        boolean rep = false;
+        if (checkKeyCache(CACHE, tableName)) {
+            HashMap hm = CACHE.get(tableName);
+            if (checkKeyCache(hm, requete.trim())) {
+                rep = true;
+            }
+        }
+        return rep;
     }
 
     /**
-     * Pour recupérer les resultats depuis le cache
+     * To get the cached value for a given request. If the cache value is not
+     * valid anymore ti will be removed
      *
      * @param key
      * @param requete
      * @return
      */
-    private static <E> List<E> getResultFromCache(String key, String requete) {
-	List<E> o = null;
-	key = key.trim().toLowerCase();
-	if (checkRequete(key, requete)) {
-	    boolean b = refreshCache(key, requete.trim());
-	    if (!b) {
-		HashMap hm = CACHE.get(key);
-		o = ((Cache) hm.get(requete.trim())).getResult();
-	    }
-	}
-	return o;
+    private static <E> List<E> getResultFromCache(String tableName, String requete) {
+        List<E> o = null;
+        tableName = tableName.trim().toLowerCase();
+        if (checkRequete(tableName, requete)) {
+            //if the cached value is valid
+            if (!refreshCache(tableName, requete.trim())) {
+                HashMap hm = CACHE.get(tableName);
+                o = ((Cache) hm.get(requete.trim())).getResult();
+            }
+        }
+        return o;
     }
 
     /**
-     * Ajouter les données de la fonction SELECT dans le cache si ils n'y sont
-     * pas
+     * Add a request and its value in the cache with a duration limit. If the
+     * table name is already present, int simply overwrite the value, else it
+     * create a new key value pair for the table and the request
      *
      * @param key
      * @param requete
@@ -149,994 +142,304 @@ public class GenericRepo {
      * @param mindureecache
      * @throws Exception
      */
-    private static <E> void addToCache(String key, String requete, List<E> result, int mindureecache) throws Exception {
-	key = key.trim().toLowerCase();
-	if (!(result == null || result.isEmpty())) {
-	    if (checkKeyCache(CACHE, key)) {
-		///true
-		CACHE.get(key).put(requete.trim(), new Cache(result, getTimeStamp(getCurrentTimeStamp(), mindureecache)));
-	    } else {
-		///false
-		HashMap<String, Cache> inst = new HashMap<>();
-		inst.put(requete.trim(), new Cache(result, getTimeStamp(getCurrentTimeStamp(), mindureecache)));
-		CACHE.put(key, inst);
-	    }
-	}
+    private static <E> void addToCache(String tableName, String requete, List<E> result) throws Exception {
+        tableName = tableName.trim().toLowerCase();
+        if (!(result == null || result.isEmpty())) {
+            if (checkKeyCache(CACHE, tableName)) {
+                CACHE.get(tableName).put(requete.trim(), new Cache(result, Utilitaire.getTimeStamp(Utilitaire.getCurrentTimeStamp(), Utilitaire.DEFAULT_CACHE_DURATION)));
+            } else {
+                HashMap<String, Cache> inst = new HashMap<>();
+                inst.put(requete.trim(), new Cache(result, Utilitaire.getTimeStamp(Utilitaire.getCurrentTimeStamp(), Utilitaire.DEFAULT_CACHE_DURATION)));
+                CACHE.put(tableName, inst);
+            }
+        }
     }
 
     /**
-     * Date et Heure Actuel
-     *
-     * @return
-     */
-    private static Timestamp getCurrentTimeStamp() {
-	java.util.Date date = new java.util.Date();
-	long time = date.getTime();
-	return new Timestamp(time);
-    }
-
-    /**
-     * Date et Heure + tempsmin
-     *
-     * @param ts
-     * @param min
-     * @return
-     */
-    private static Timestamp getTimeStamp(Timestamp ts, int min) {
-	return new Timestamp(ts.getYear(), ts.getMonth(), ts.getDate(), ts.getHours(), ts.getMinutes() + min, ts.getSeconds(), 0);
-    }
-
-    /**
-     * Connection base Oracle
-     *
-     * @param dbname
-     * @param username
-     * @param password
-     * @param port
-     * @param host
-     * @return
-     * @throws Exception
-     */
-    private static Connection getOracleConnection(String dbname, String username, String password, int port, String host) throws Exception {
-	Class.forName("oracle.jdbc.driver.OracleDriver");
-	String DBurl = "jdbc:oracle:thin:@" + host + ":" + port + "/" + dbname;
-	Connection con = null;
-	con = DriverManager.getConnection(DBurl, username, password);
-	setNLS_DATE_FORMAT(con);
-	return con;
-    }
-
-    /**
-     * Pour la connection Oracle, pour ne pas avoir de problème avec la
-     * manipulation des dates
-     *
-     * @param c
-     * @throws Exception
-     */
-    private static void setNLS_DATE_FORMAT(Connection c) throws Exception {
-	String requete = "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'";
-	PreparedStatement stat = c.prepareStatement(requete);
-	stat.executeUpdate();
-	c.commit();
-	stat.close();
-    }
-
-    /**
-     * Connection base Postgresql
-     *
-     * @param dbname
-     * @param username
-     * @param password
-     * @param port
-     * @param host
-     * @return
-     * @throws Exception
-     */
-    private static Connection getPostgresqlConnection(String dbname, String username, String password, int port, String host) throws Exception {
-	Class.forName("org.postgresql.Driver");
-	String DBurl = "jdbc:postgresql://" + host + ":" + port + "/" + dbname;
-	Connection con = DriverManager.getConnection(DBurl, username, password);
-	con.setAutoCommit(false);
-	return con;
-    }
-
-    /**
-     * connection base mysql
-     *
-     * @param dbname
-     * @param username
-     * @param password
-     * @param port
-     * @param host
-     * @return
-     * @throws Exception
-     */
-    private static Connection getMysqlConnection(String dbname, String username, String password, int port, String host) throws Exception {
-	Class.forName("com.mysql.jdbc.Driver");
-	String DBurl = "jdbc:mysql://" + host + ":" + port + "/" + dbname;
-	Connection con = DriverManager.getConnection(DBurl, username, password);
-	con.setAutoCommit(false);
-	return con;
-    }
-
-    /**
-     *
-     * @param xmlUrl
-     * @return Pour récupérer l'instance d'une connexion bdd
-     * @throws Exception
-     */
-    public static Connection getConnection(String xmlUrl) throws Exception {
-	String dbname, username, password, dbtype, host, port;
-	Connection c = null;
-	DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-	DocumentBuilder db;
-	Document doc;
-	db = dbf.newDocumentBuilder();
-	try {
-	    doc = db.parse(xmlUrl);
-	    dbname = doc.getElementsByTagName("database").item(0).getFirstChild().getNodeValue();
-	    username = doc.getElementsByTagName("user").item(0).getFirstChild().getNodeValue();
-	    password = doc.getElementsByTagName("password").item(0).getFirstChild().getNodeValue();
-	    dbtype = doc.getElementsByTagName("sgbd").item(0).getFirstChild().getNodeValue();
-	    host = doc.getElementsByTagName("host").item(0).getFirstChild().getNodeValue();
-	    port = doc.getElementsByTagName("port").item(0).getFirstChild().getNodeValue();
-
-	    if (dbtype.equalsIgnoreCase("oracle") || dbtype.equalsIgnoreCase("orcl")) {
-		c = getOracleConnection(dbname, username, password, Integer.parseInt(port), host);
-	    } else if (dbtype.equalsIgnoreCase("postgresql") || dbtype.equalsIgnoreCase("postgres")
-		    || dbtype.equalsIgnoreCase("pgsql") || dbtype.equalsIgnoreCase("postgre")) {
-		c = getPostgresqlConnection(dbname, username, password, Integer.parseInt(port), host);
-	    } else if (dbtype.equalsIgnoreCase("mysql")) {
-		c = getMysqlConnection(dbname, username, password, Integer.parseInt(port), host);
-	    }
-	} catch (Exception ex) {
-	    throw new Exception("connection failed: Veuillez vérifier le type de base de données que vous avez entré !");
-	}
-
-	return c;
-    }
-
-    /**
-     *
-     * @param dbname
-     * @param username
-     * @param password
-     * @param dbtype
-     * @param port
-     * @param host
-     * @return Pour récupérer l'instance d'une connexion bdd
-     * @throws Exception
-     */
-    public static Connection getConnection(String dbname, String username, String password, String dbtype, int port, String host) throws Exception {
-	Connection c = null;
-	try {
-	    if (dbtype.equalsIgnoreCase("oracle") || dbtype.equalsIgnoreCase("orcl")) {
-		c = getOracleConnection(dbname, username, password, port, host);
-	    } else if (dbtype.equalsIgnoreCase("postgresql") || dbtype.equalsIgnoreCase("postgres")
-		    || dbtype.equalsIgnoreCase("pgsql") || dbtype.equalsIgnoreCase("postgre")) {
-		c = getPostgresqlConnection(dbname, username, password, port, host);
-	    } else if (dbtype.equalsIgnoreCase("mysql")) {
-		c = getMysqlConnection(dbname, username, password, port, host);
-	    }
-	} catch (Exception e) {
-	    throw new Exception("connection failed: Veuillez vérifier le type de base de données que vous avez entré !");
-	}
-	return c;
-    }
-
-    /**
-     * Select avec prise en charge de l'Héritage ,Annotation . Ne Marche pas si
+     * Select avec prise en charge de l'Héritage ,Annotation .Ne Marche pas si
      * l'instance entrée ne respecte pas les normes d'annotation configurés
      *
      * @param <E>
      * @param instance
-     * @param condition
-     * @param c
+     * @param tableName
+     * @param con
+     * @param rawSql
+     * @param rawSqlValues
      * @return
      * @throws Exception
      */
-    public static <E> List<E> find(Class<E> instance, String condition, Connection c) throws Exception {
-	List<E> o = null;
+    public static <E> List<E> find(Class<E> instance, String tableName, Connection con, String rawSql, Object... rawSqlValues) throws Exception {
+        List<E> result = null;
 
-	Column annot;
-	ResultSet rs = null;
-	String colonne;
-	PreparedStatement ps = null;
-	try {
-	    verifyTable(instance);
-	    String tableName = getNomTable(instance);
-	    String sql = "Select * from " + tableName;
-	    if (condition != null && condition.equals("") == false) {
-		sql += " where " + condition;
-	    }
-	    ps = c.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-	    String req = ps.toString();
-	    LOGGER.debug("SQL: {}", sql);
+        ResultSet rs = null;
+        PreparedStatement ps = null;
+        try {
 
-	    o = getResultFromCache(tableName, req);
-	    if (o == null) {
+            verifyTable(instance);
+            verifyRawSqlCount(rawSql, rawSqlValues);
+            String sql = "Select * from " + tableName;
+            if (rawSql != null && !rawSql.equals("")) {
+                sql += " where " + rawSql;
+            }
+            List<Field> fields = getAllField(instance);
+            removeNullFields(fields, result);
 
-		rs = executeStatementSelect(ps, condition, tableName, instance);
-		List<Field> field = getAllField(instance, rs.getMetaData(), tableName);
-		E obj;
-		Method m;
+            ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
+            String req = ps.toString();
+            LOGGER.debug("SQL: {}", req);
+            for (int i = 0; i < rawSqlValues.length; i++) {
+                setPreparedStatement(ps, rawSqlValues[i].getClass().getTypeName(), i + 1, rawSqlValues[i]);
+            }
+            result = getResultFromCache(tableName, req);
+            if (result == null) {
 
-		o = new ArrayList<>();
-		while (rs.next()) {
-		    obj = (E) instance.getConstructor(new Class[0]).newInstance();
-		    for (int i = 0; i < field.size(); i++) {
-			annot = (Column) field.get(i).getAnnotation(Column.class);
-			if (annot != null) {
-			    colonne = annot.name();
-			    m = obj.getClass().getMethod("set" + toUpperCase(field.get(i).getName()), field.get(i).getType());
-//			    LOGGER.info("Methode name: {}", m.getDeclaringClass());
-//			    LOGGER.info("Colonne: {}", colonne);
-//			    LOGGER.info("Type of field {}", field.get(i).getType().getName());
-//			    LOGGER.info("object: {}", obj.getClass().getName());
-			    getAndSetResult(obj, rs, m, colonne, field.get(i).getType().getName());
-			}
-		    }
-		    o.add(obj);
-		}
-		//set the response into the cache
-		Cacheable cachee;
-		cachee = (Cacheable) instance.getAnnotation(Cacheable.class);
-		if (cachee != null) {
-		    int mindureecache = (cachee).dureeenminute();
-		    addToCache(tableName, req, o, mindureecache);
-		}
-	    }
-	} catch (Exception ex) {
-	    throw ex;
-	} finally {
-	    if (rs != null) {
-		rs.close();
-	    }
-	    if (ps != null) {
-		ps.close();
-	    }
-	}
-	return o;
+                rs = executeStatementSelect(ps, rawSql, tableName, instance);
+                result = new ArrayList<>();
+                getResultAsList(rs, fields, result, instance);
+                //set the response into the cache
+                Cacheable cachee;
+                cachee = (Cacheable) instance.getAnnotation(Cacheable.class);
+                if (cachee != null) {
+                    addToCache(tableName, req, result);
+                }
+            }
+        } catch (Exception ex) {
+            throw ex;
+        } finally {
+            if (rs != null) {
+                rs.close();
+            }
+            if (ps != null) {
+                ps.close();
+            }
+        }
+        return result;
     }
 
-    public static <E> List<E> find(Class<E> instance, String tableName, String condition, Connection c) throws Exception {
-	List<E> o = null;
-
-	Column annot;
-	ResultSet rs = null;
-	String colonne;
-	PreparedStatement ps = null;
-	try {
-	    verifyTable(instance);
-	    String sql = "Select * from " + tableName;
-	    if (condition != null && condition.equals("") == false) {
-		sql += " where " + condition;
-	    }
-	    ps = c.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-	    String req = ps.toString();
-	    LOGGER.debug("SQL: {}", sql);
-	    o = getResultFromCache(tableName, req);
-	    if (o == null) {
-
-		rs = executeStatementSelect(ps, condition, tableName, instance);
-		List<Field> field = getAllField(instance, rs.getMetaData(), tableName);
-		E obj;
-		Method m;
-
-		o = new ArrayList<>();
-		while (rs.next()) {
-		    obj = (E) instance.getConstructor(new Class[0]).newInstance();
-		    for (int i = 0; i < field.size(); i++) {
-			annot = (Column) field.get(i).getAnnotation(Column.class);
-			if (annot != null) {
-			    colonne = annot.name();
-			    m = instance.getMethod("set" + toUpperCase(field.get(i).getName()), field.get(i).getType());
-			    getAndSetResult(obj, rs, m, colonne, field.get(i).getType().getName());
-			}
-		    }
-		    o.add(obj);
-		}
-		//set the response into the cache
-		Cacheable cachee;
-		cachee = (Cacheable) instance.getAnnotation(Cacheable.class);
-		if (cachee != null) {
-		    int mindureecache = (cachee).dureeenminute();
-		    addToCache(tableName, req, o, mindureecache);
-		}
-	    }
-	} catch (Exception ex) {
-	    throw ex;
-	} finally {
-	    if (rs != null) {
-		rs.close();
-	    }
-	    if (ps != null) {
-		ps.close();
-	    }
-	}
-	return o;
+    public static <E> List<E> find(Class<E> instance, Connection con, String rawSql, Object... rawSqlValues) throws Exception {
+        try {
+            String tableName = getNomTable(instance);
+            return find(instance, tableName, con, rawSql, rawSqlValues);
+        } catch (Exception ex) {
+            throw ex;
+        }
     }
 
     /**
-     * Select avec prise en charge de l'Héritage,Annotation . Ne Marche pas si
+     * Select avec prise en charge de l'Héritage,Annotation .Ne Marche pas si
      * l'objet entrée ne respecte pas les normes d'annotation configurés
      *
      * @param <E>
-     * @param objet
+     * @param obj
+     * @param tableName
      * @param afterAfterwhere
-     * @param intNull
-     * @param c
+     * @param con
      * @return Object[]
      * @throws Exception
      */
-    public static <E> List<E> find(E objet, Integer intNull, String afterAfterwhere, Connection c) throws Exception {
-	List<E> o = null;
-	Column annot;
-	ResultSet rs = null;
-	String colonne = "";
-	PreparedStatement ps = null;
-	Class instance = objet.getClass();
-	E objRetTemp;
-	Method m;
-	try {
-	    verifyTable(instance);
-	    String tableName = getNomTable(instance);
-	    String sql = "Select * from " + tableName + " where 4=4 ";
-	    List<Field> field = getAllField(instance);
-	    List<Object> condition = new ArrayList<>();
-	    List<Integer> indfield = new ArrayList();
-	    for (int i = 0; i < field.size(); i++) {
-		annot = (Column) field.get(i).getAnnotation(Column.class);
-		if (annot != null) {
-		    colonne = annot.name();
-		    try {
-			m = instance.getMethod("get" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    } catch (Exception exx) {
-			m = instance.getMethod("is" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    }
-		    Object obj = m.invoke(objet, new Object[0]);
-		    if (obj != null) {
-			if (!obj.getClass().getTypeName().equalsIgnoreCase("java.lang.Integer")
-				&& !obj.getClass().getTypeName().equalsIgnoreCase("int")) {
-			    condition.add(obj);
-			    indfield.add(i);
-			    sql += " and " + colonne + " = ? ";
-			} else {
-			    //miditra ny zero
-			    if (intNull == null || (intNull != null && (int) obj != intNull)) {
-				condition.add(obj);
-				indfield.add(i);
-				sql += " and " + colonne + " = ? ";
-			    }
-			}
+    public static <E> List<E> find(E obj, String tableName, String afterAfterwhere, Connection con) throws Exception {
+        List<E> result = null;
+        Column annot;
+        ResultSet rs = null;
+        String colonne;
+        PreparedStatement ps = null;
+        Class instance = obj.getClass();
+        Method m;
+        try {
+            verifyTable(instance);
+            String sql = "Select * from " + tableName + " where 4=4 ";
+            List<Field> fields = getAllField(instance);
+            removeNullFields(fields, result);
+            for (int i = 0; i < fields.size(); i++) {
+                annot = getCulumnAnnotationName(fields.get(i));
+                colonne = annot.name();
+                sql += " and " + colonne + " = ? ";
+            }
+            if (afterAfterwhere != null) {
+                sql += " " + afterAfterwhere;
+            }
+            ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
 
-		    }
-		}
-	    }
-	    if (afterAfterwhere != null) {
-		sql += " " + afterAfterwhere;
-	    }
-	    ps = c.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
+            for (int i = 0; i < fields.size(); i++) {
+                m = instance.getMethod("get" + toUpperCase(fields.get(i).getName()), new Class[0]);
+                setPreparedStatement(ps, fields.get(i).getType().getName(), i + 1, m.invoke(obj, new Object[0]));
 
-	    for (int i = 0; i < condition.size(); i++) {
-		setPreparedStatement(ps, field.get(indfield.get(i)).getType().getName(), i + 1, condition.get(i));
-	    }
-	    String req = ps.toString();
-	    o = getResultFromCache(tableName, req);
-	    if (o == null) {
-		rs = executeStatementSelect(ps, "", tableName, instance);
-
-		o = new ArrayList<>();
-		while (rs.next()) {
-		    objRetTemp = (E) instance.getConstructor(new Class[0]).newInstance();
-		    for (int i = 0; i < field.size(); i++) {
-			annot = (Column) field.get(i).getAnnotation(Column.class);
-			if (annot != null) {
-			    colonne = annot.name();
-			    m = instance.getMethod("set" + toUpperCase(field.get(i).getName()), field.get(i).getType());
-			    getAndSetResult(objRetTemp, rs, m, colonne, field.get(i).getType().getName());
-			}
-		    }
-		    o.add(objRetTemp);
-		}
-
-		Cacheable cachee;
-		cachee = (Cacheable) instance.getAnnotation(Cacheable.class);
-		if (cachee != null) {
-		    int mindureecache = (cachee).dureeenminute();
-		    addToCache(tableName, req, o, mindureecache);
-		}
-	    }
-	} catch (Exception ex) {
-	    throw ex;
-	} finally {
-	    if (rs != null) {
-		rs.close();
-	    }
-	    if (ps != null) {
-		ps.close();
-	    }
-	}
-	return o;
+            }
+            String req = ps.toString();
+            LOGGER.debug("SQL: {}", req);
+            result = getResultFromCache(tableName, req);
+            if (result == null) {
+                rs = executeStatementSelect(ps, sql, tableName, instance);
+                result = new ArrayList<>();
+                getResultAsList(rs, fields, result, instance);
+                Cacheable cachee;
+                cachee = (Cacheable) instance.getAnnotation(Cacheable.class);
+                if (cachee != null) {
+                    addToCache(tableName, req, result);
+                }
+            }
+        } catch (Exception ex) {
+            throw ex;
+        } finally {
+            if (rs != null) {
+                rs.close();
+            }
+            if (ps != null) {
+                ps.close();
+            }
+        }
+        return result;
     }
 
-    /**
-     *
-     * @param <E>
-     * @param o
-     * @param afterWhere
-     * @param valeurs
-     * @param autresApsWhere
-     * @param con
-     * @return
-     * @throws SQLException
-     * @throws Exception
-     */
-    public static <E> List<E> find(E o, String[] afterWhere, Object[] valeurs, String autresApsWhere, Connection con)
-	    throws SQLException, Exception {
-	List<E> resultFinal = null;
-	ResultSet result = null;
-	PreparedStatement req = null;
-	Column annot;
-	String colonne = "";
-	Method m;
-	try {
-	    Class classeO = o.getClass();
-	    verifyTable(classeO);
-
-	    String nomTable = getNomTable(classeO);
-	    Field[] f = new Field[0];
-	    f = getAllField(classeO).toArray(f);
-
-	    String request = "";
-	    if (afterWhere == null || valeurs == null) {
-		request += "select * from " + nomTable;
-	    } else {
-		request = buildSql(nomTable, afterWhere);
-	    }
-
-	    if (autresApsWhere != null) {
-		request += " " + autresApsWhere;
-	    }
-
-	    req = con.prepareStatement(request, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-
-	    if (valeurs != null) {
-		for (int i = 0; i < valeurs.length; i++) {
-		    setPreparedStatement(req, valeurs[i].getClass().getTypeName(), i + 1, valeurs[i]);
-		}
-	    }
-	    String requette = req.toString();
-	    resultFinal = getResultFromCache(nomTable, requette);
-	    if (resultFinal == null) {
-		result = req.executeQuery();
-
-		resultFinal = new ArrayList<>();
-
-		//int b = 1;
-		while (result.next()) {
-
-		    E temp = (E) classeO.getConstructor(new Class[0]).newInstance();
-		    for (Field f1 : f) {
-			annot = (Column) f1.getAnnotation(Column.class);
-			if (annot != null) {
-			    colonne = annot.name();
-			    m = classeO.getMethod("set" + toUpperCase(f1.getName()), f1.getType());
-			    getAndSetResult(temp, result, m, colonne, f1.getType().getName());
-			}
-		    }
-		    resultFinal.add(temp);
-		}
-		Cacheable cachee;
-		cachee = (Cacheable) classeO.getAnnotation(Cacheable.class);
-		if (cachee != null) {
-		    int mindureecache = (cachee).dureeenminute();
-		    addToCache(nomTable, requette, resultFinal, mindureecache);
-		}
-	    }
-
-	} catch (Exception e) {
-	    throw e;
-	} finally {
-	    if (result != null) {
-		result.close();
-	    }
-	    if (req != null) {
-		req.close();
-	    }
-	}
-	return resultFinal;
-    }
-
-    public static void insert(Object o, String tableName, Connection c) throws Exception {
-	String requete, colonne;
-	Column annot;
-	PreparedStatement ps = null;
-	Class instance = o.getClass();
-	Method m;
-	Object g;
-	try {
-	    verifyTable(instance);
-
-	    requete = "INSERT INTO " + tableName + "(";
-	    Class superClasse;
-	    List<Field> field = new ArrayList();
-	    superClasse = instance;
-	    boolean b = false;
-	    int nbcolonne = 0;
-	    while (!superClasse.getName().equals("java.lang.Object")) {
-		Field[] attribut = superClasse.getDeclaredFields();
-		for (int i = 0; i < attribut.length; i++) {
-		    annot = (Column) attribut[i].getAnnotation(Column.class);
-		    if (annot != null) {
-			field.add(attribut[i]);
-			colonne = annot.name();
-			nbcolonne++;
-			if (!b) {
-			    requete += colonne;
-			    b = true;
-			} else {
-			    requete += "," + colonne;
-			}
-		    }
-		}
-		superClasse = superClasse.getSuperclass();
-	    }
-	    if (b == false) {
-		throw new Exception("Aucune Annotation d'Attributs Spécifiés !");
-	    }
-	    requete += ") VALUES (";
-	    for (int i = 0; i < nbcolonne; i++) {
-		if (i == 0) {
-		    requete += "?";
-		} else {
-		    requete += ",?";
-		}
-	    }
-	    requete += ")";
-	    LOGGER.info("SQL: {}", requete);
-	    ps = c.prepareStatement(requete);
-	    nbcolonne = 1;
-	    for (int i = 0; i < field.size(); i++) {
-		annot = (Column) field.get(i).getAnnotation(Column.class);
-		if (annot != null) {
-		    try {
-			m = instance.getMethod("get" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    } catch (NoSuchMethodException | SecurityException e) {
-			///Cas spécifique pour certains getteur de type boolean
-			m = instance.getMethod("is" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    }
-		    g = m.invoke(o, new Object[0]);
-		    setPreparedStatement(ps, field.get(i).getType().getName(), nbcolonne, g);
-		    nbcolonne++;
-		}
-	    }
-	    ps.executeUpdate();
-
-	    refreshCache(tableName);
-	} catch (Exception e) {
-	    throw e;
-	} finally {
-	    if (ps != null) {
-		ps.close();
-	    }
-	}
+    public static <E> List<E> find(E obj, String afterAfterwhere, Connection con) throws Exception {
+        try {
+            Class instance = obj.getClass();
+            String tableName = getNomTable(instance);
+            return find(obj, tableName, afterAfterwhere, con);
+        } catch (Exception ex) {
+            throw ex;
+        }
     }
 
     /**
      * Avec prise en charge d'annotation, héritage Ne Marche pas si l'object
      * entrée ne respecte pas les normes d'annotation configurés
      *
-     * @param o
-     * @param c
-     * @throws Exception
-     */
-    public static void insert(Object o, Connection c) throws Exception {
-	String requete, colonne;
-	Column annot;
-	PreparedStatement ps = null;
-	Class instance = o.getClass();
-	Method m;
-	Object g;
-	try {
-	    verifyTable(instance);
-	    String tableName = getNomTable(instance);
-	    requete = "INSERT INTO " + tableName + "(";
-	    Class superClasse;
-	    List<Field> field = new ArrayList();
-	    superClasse = instance;
-	    boolean b = false;
-	    int nbcolonne = 0;
-	    while (!superClasse.getName().equals("java.lang.Object")) {
-		Field[] attribut = superClasse.getDeclaredFields();
-		for (int i = 0; i < attribut.length; i++) {
-		    annot = (Column) attribut[i].getAnnotation(Column.class);
-		    if (annot != null) {
-			field.add(attribut[i]);
-			colonne = annot.name();
-			nbcolonne++;
-			if (!b) {
-			    requete += colonne;
-			    b = true;
-			} else {
-			    requete += "," + colonne;
-			}
-		    }
-		}
-		superClasse = superClasse.getSuperclass();
-	    }
-	    if (b == false) {
-		throw new Exception("Aucune Annotation d'Attributs Spécifiés !");
-	    }
-	    requete += ") VALUES (";
-	    for (int i = 0; i < nbcolonne; i++) {
-		if (i == 0) {
-		    requete += "?";
-		} else {
-		    requete += ",?";
-		}
-	    }
-	    requete += ")";
-	    LOGGER.info("SQL: {}", requete);
-	    ps = c.prepareStatement(requete);
-	    nbcolonne = 1;
-	    for (int i = 0; i < field.size(); i++) {
-		annot = (Column) field.get(i).getAnnotation(Column.class);
-		if (annot != null) {
-		    try {
-			m = instance.getMethod("get" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    } catch (NoSuchMethodException | SecurityException e) {
-			///Cas spécifique pour certains getteur de type boolean
-			m = instance.getMethod("is" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    }
-		    g = m.invoke(o, new Object[0]);
-		    setPreparedStatement(ps, field.get(i).getType().getName(), nbcolonne, g);
-		    nbcolonne++;
-		}
-	    }
-	    ps.executeUpdate();
-
-	    refreshCache(tableName);
-	} catch (Exception e) {
-	    throw e;
-	} finally {
-	    if (ps != null) {
-		ps.close();
-	    }
-	}
-    }
-
-    /**
-     * Avec prise en charge d'annotation, héritage, insertion d'Attribut tableau
-     * Ne Marche pas si l'object entrée ne respecte pas les normes d'annotation
-     * configurés Cette fonction insert toutes les attributs avec l'annotations
-     * tableau qu'il trouve, sans limites
-     *
-     * @param o
-     * @param c
-     * @throws Exception
-     */
-    public static void insertWithArrayAttributes(Object o, Connection c) throws Exception {
-	String requete, colonne;
-	Column annot;
-	Tableau tablannot;
-	PreparedStatement ps = null;
-	Class instance = o.getClass();
-	Method m;
-	Object g;
-	try {
-	    verifyTable(instance);
-	    String tableName = getNomTable(instance);
-	    requete = "INSERT INTO " + tableName + "(";
-	    Class superClasse;
-	    List<Field> field = new ArrayList();
-	    List<Field> fieldTableau = new ArrayList();
-	    superClasse = instance;
-	    boolean b = false;
-	    int nbcolonne = 0;
-	    while (!superClasse.getName().equals("java.lang.Object")) {
-		Field[] attribut = superClasse.getDeclaredFields();
-		for (int i = 0; i < attribut.length; i++) {
-		    annot = (Column) attribut[i].getAnnotation(Column.class);
-		    if (annot != null) {
-			field.add(attribut[i]);
-			colonne = annot.name();
-			nbcolonne++;
-			if (!b) {
-			    requete += colonne;
-			    b = true;
-			} else {
-			    requete += "," + colonne;
-			}
-		    } else {
-			tablannot = (Tableau) attribut[i].getAnnotation(Tableau.class);
-			if (tablannot != null) {
-			    fieldTableau.add(attribut[i]);
-			}
-		    }
-		}
-		superClasse = superClasse.getSuperclass();
-	    }
-	    if (b == false) {
-		throw new Exception("Aucune Annotation d'Attributs Spécifiés !");
-	    }
-	    requete += ") VALUES (";
-	    for (int i = 0; i < nbcolonne; i++) {
-		if (i == 0) {
-		    requete += "?";
-		} else {
-		    requete += ",?";
-		}
-	    }
-	    requete += ")";
-	    ps = c.prepareStatement(requete);
-	    nbcolonne = 1;
-	    //memetraka anle value ao anaty prepared statement ho an tsy tableau
-	    for (int i = 0; i < field.size(); i++) {
-		try {
-		    m = instance.getMethod("get" + toUpperCase(field.get(i).getName()), new Class[0]);
-		} catch (NoSuchMethodException | SecurityException e) {
-		    ///Cas spécifique pour certains getteur de type boolean
-		    m = instance.getMethod("is" + toUpperCase(field.get(i).getName()), new Class[0]);
-		}
-		g = m.invoke(o, new Object[0]);
-		setPreparedStatement(ps, field.get(i).getType().getName(), nbcolonne, g);
-		nbcolonne++;
-	    }
-	    //mi insert anle tableau
-	    if (fieldTableau.size() > 0) {
-		for (int i = 0; i < fieldTableau.size(); i++) {
-		    m = instance.getMethod("get" + toUpperCase(fieldTableau.get(i).getName()), new Class[0]);
-		    Object[] objTemp = (Object[]) m.invoke(o, new Object[0]);
-		    if (objTemp.length > 0) {
-			for (Object objTemp1 : objTemp) {
-			    insert(objTemp1, c);
-			}
-		    }
-		}
-	    }
-
-	    ps.executeUpdate();
-
-	    refreshCache(tableName);
-	} catch (Exception e) {
-	    throw e;
-	} finally {
-	    if (ps != null) {
-		ps.close();
-	    }
-	}
-    }
-
-    /**
-     * Fonction pour effectuer un update avec comme argument un objet; La
-     * Fonction n'updatera que les attributs de l'objets non null ; Seul les
-     * Attribut PK sont mis dans la condition update Nb: Bien Considérer les
-     * attributs de types int car les int sont tjrs initialisé 0 si null => un
-     * int ne peut etre null ! mettez le en -776
-     *
      * @param obj
+     * @param tableName
      * @param con
      * @throws Exception
      */
-    public static void updateById(Object obj, Integer intNull, Connection con) throws Exception {
-	PreparedStatement prs = null;
-	Method m;
-	Column annot;
-	String colonne;
-	Object objet;
-	Id pk;
-	try {
-	    Class instance = obj.getClass();
-	    verifyTable(instance);
-	    String tableName = getNomTable(instance);
-	    String sql = "update " + tableName + " set ";
-	    List<Field> field = getAllField(instance);
-	    List<Object> condition = new ArrayList<>();
-	    List<Integer> indfield = new ArrayList();
-	    List<Object> where = new ArrayList<>();
-	    List<Integer> indfieldwhere = new ArrayList();
-	    String wherereq = " ";
-	    for (int i = 0; i < field.size(); i++) {
-		annot = (Column) field.get(i).getAnnotation(Column.class);
-		if (annot != null) {
-		    colonne = annot.name();
-		    try {
-			m = instance.getMethod("get" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    } catch (Exception exx) {
-			m = instance.getMethod("is" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    }
-		    objet = m.invoke(obj, new Object[0]);
-		    if (objet != null) {
-			pk = (Id) field.get(i).getAnnotation(Id.class);
-			if (!objet.getClass().getTypeName().equalsIgnoreCase("java.lang.Integer")
-				&& !objet.getClass().getTypeName().equalsIgnoreCase("int")) {
-			    if (pk != null) {
-				if (where.isEmpty()) {
-				    wherereq += " where " + colonne + " = ? ";
-				} else {
-				    wherereq += " and " + colonne + " = ? ";
-				}
-				where.add(objet);
-				indfieldwhere.add(i);
-			    } else {
-				if (condition.isEmpty()) {
-				    sql += " " + colonne + " = ? ";
-				} else {
-				    sql += " ," + colonne + " = ? ";
-				}
-				condition.add(objet);
-				indfield.add(i);
-			    }
-			} else {
-			    if (intNull == null || (intNull != null && (int) objet != intNull)) {
-				if (pk != null) {
-				    if (where.isEmpty()) {
-					wherereq += " where " + colonne + " = ? ";
-				    } else {
-					wherereq += " and " + colonne + " = ? ";
-				    }
-				    where.add(objet);
-				    indfieldwhere.add(i);
-				} else {
-				    if (condition.isEmpty()) {
-					sql += " " + colonne + " = ? ";
-				    } else {
-					sql += " ," + colonne + " = ? ";
-				    }
-				    condition.add(objet);
-				    indfield.add(i);
-				}
-			    }
-			}
-		    }
-		}
-	    }
-	    sql += wherereq;
-	    prs = con.prepareStatement(sql);
-	    int mo = 0;
-	    for (int i = 0; i < condition.size(); i++) {
-		setPreparedStatement(prs, field.get(indfield.get(i)).getType().getName(), i + 1, condition.get(i));
-		mo = i + 2;
-	    }
-	    for (int i = 0; i < where.size(); i++) {
-		setPreparedStatement(prs, field.get(indfieldwhere.get(i)).getType().getName(), mo, where.get(i));
-		mo++;
-	    }
+    public static void insert(Object obj, String tableName, Connection con) throws Exception {
+        String requete, colonne;
+        Column annot;
+        PreparedStatement ps = null;
+        Class instance = obj.getClass();
+        Method m;
+        try {
+            verifyTable(instance);
+            requete = "INSERT INTO " + tableName + "(";
+            List<Field> fields = getAllField(instance);
+            removeNullFields(fields, obj);
+            String into = " ";
+            String values = " ";
+            for (int i = 0; i < fields.size(); i++) {
+                annot = getCulumnAnnotationName(fields.get(i));
+                colonne = annot.name();
+                if (i == 0) {
+                    into += colonne;
+                    values += "?";
+                } else {
+                    requete += "," + colonne;
+                    values += ",?";
+                }
+            }
+            requete += into;
+            requete += ") VALUES (";
+            requete += values;
+            requete += ")";
+            LOGGER.debug("SQL: {}", requete);
+            ps = con.prepareStatement(requete);
+            int nbcolonne = 1;
+            for (int i = 0; i < fields.size(); i++) {
+                m = instance.getMethod("get" + toUpperCase(fields.get(i).getName()), new Class[0]);
+                setPreparedStatement(ps, fields.get(i).getType().getName(), nbcolonne, m.invoke(obj, new Object[0]));
+                nbcolonne++;
+            }
+            ps.executeUpdate();
 
-	    prs.executeUpdate();
-	    refreshCache(tableName);
-	} catch (Exception ex) {
-	    throw ex;
-	} finally {
-	    if (prs != null) {
-		prs.close();
-	    }
-	}
+            refreshCache(tableName);
+        } catch (Exception e) {
+            throw e;
+        } finally {
+            if (ps != null) {
+                ps.close();
+            }
+        }
+    }
+
+    public static void insert(Object obj, Connection con) throws Exception {
+        try {
+            Class instance = obj.getClass();
+            String tableName = getNomTable(instance);
+            insert(obj, tableName, con);
+        } catch (Exception e) {
+            throw e;
+        }
     }
 
     /**
-     * update san prendre en compte le primary key comme condition la condition
+     * update sans prendre en compte le primary key comme condition la condition
      * doit etre faite a la main
      *
      * @param obj
+     * @param tableName
      * @param afterWhere
-     * @param intNull
      * @param con
+     * @param afterWhereValues
      * @throws Exception
      */
-    public static void update(Object obj, String afterWhere, Integer intNull, Connection con) throws Exception {
-	PreparedStatement prs = null;
-	Method m;
-	Column annot;
-	String colonne;
-	Object objet;
-	Id pk;
-	try {
-	    Class instance = obj.getClass();
-	    verifyTable(instance);
-	    String tableName = getNomTable(instance);
-	    String sql = "update " + tableName + " set ";
-	    List<Field> field = getAllField(instance);
-	    List<Object> condition = new ArrayList<>();
-	    List<Integer> indfield = new ArrayList();
+    public static void update(Object obj, String tableName, Connection con, String afterWhere, Object... afterWhereValues) throws Exception {
+        PreparedStatement ps = null;
+        Method m;
+        Column annot;
+        String colonne;
+        try {
+            Class instance = obj.getClass();
+            verifyTable(instance);
+            verifyRawSqlCount(afterWhere, afterWhereValues);
 
-	    for (int i = 0; i < field.size(); i++) {
-		annot = (Column) field.get(i).getAnnotation(Column.class);
-		if (annot != null) {
-		    colonne = annot.name();
-		    try {
-			m = instance.getMethod("get" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    } catch (Exception exx) {
-			m = instance.getMethod("is" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    }
-		    objet = m.invoke(obj, new Object[0]);
-		    if (objet != null) {
-			if (!objet.getClass().getTypeName().equalsIgnoreCase("java.lang.Integer")
-				&& !objet.getClass().getTypeName().equalsIgnoreCase("int")) {
+            String sql = "update " + tableName + " set ";
+            List<Field> fields = getAllField(instance);
+            removeNullFields(fields, obj);
 
-			    if (condition.isEmpty()) {
-				sql += " " + colonne + " = ? ";
-			    } else {
-				sql += " ," + colonne + " = ? ";
-			    }
-			    condition.add(objet);
-			    indfield.add(i);
-			} else {
-			    if (intNull == null || (intNull != null && (int) objet != intNull)) {
-				if (condition.isEmpty()) {
-				    sql += " " + colonne + " = ? ";
-				} else {
-				    sql += " ," + colonne + " = ? ";
-				}
-				condition.add(objet);
-				indfield.add(i);
-			    }
-			}
-		    }
-		}
-	    }
-	    sql += " where " + afterWhere;
-	    LOGGER.info("SQL: {}", sql);
-	    prs = con.prepareStatement(sql);
-	    int mo = 0;
-	    for (int i = 0; i < condition.size(); i++) {
-		setPreparedStatement(prs, field.get(indfield.get(i)).getType().getName(), i + 1, condition.get(i));
-		mo = i + 2;
-	    }
+            for (int i = 0; i < fields.size(); i++) {
+                annot = getCulumnAnnotationName(fields.get(i));
+                colonne = annot.name();
 
-	    prs.executeUpdate();
-	    refreshCache(tableName);
-	} catch (Exception ex) {
-	    throw ex;
-	} finally {
-	    if (prs != null) {
-		prs.close();
-	    }
-	}
+                if (i == 0) {
+                    sql += colonne + " = ? ";
+                } else {
+                    sql += "," + colonne + " = ? ";
+                }
+
+            }
+            if (afterWhere != null) {
+                sql += " where " + afterWhere;
+            }
+
+            LOGGER.debug("SQL: {}", sql);
+            ps = con.prepareStatement(sql);
+            int position = 1;
+            for (int i = 0; i < fields.size(); i++) {
+                m = instance.getMethod("get" + toUpperCase(fields.get(i).getName()), new Class[0]);
+                setPreparedStatement(ps, fields.get(i).getType().getName(), position, m.invoke(obj, new Object[0]));
+                position++;
+
+            }
+            for (Object afterWhereValue : afterWhereValues) {
+                setPreparedStatement(ps, afterWhereValue.getClass().getTypeName(), position, afterWhereValue);
+                position++;
+            }
+            ps.executeUpdate();
+            refreshCache(tableName);
+        } catch (Exception ex) {
+            throw ex;
+        } finally {
+            if (ps != null) {
+                ps.close();
+            }
+        }
     }
 
-    /**
-     * Fonction pour effectuer un update avec comme argument le nom de table, le
-     * noms des attributs à mettre à jour et les valeurs correspondantes
-     *
-     * @param nomtable
-     * @param columns
-     * @param values
-     * @param condition
-     * @param con
-     * @throws Exception
-     */
-    public static void update(String nomtable, String[] columns, Object[] values, String condition, Connection con) throws Exception {
-	PreparedStatement prs = null;
-	try {
-	    String sql = "update " + nomtable + " set ";
-	    Boolean first = true;
-	    for (String column : columns) {
-		if (!first) {
-		    sql += ",";
-		}
-		sql += column + "=?";
-		first = false;
-	    }
-	    if (condition != null && !condition.trim().equals("")) {
-		sql += " where " + condition;
-	    }
-	    LOGGER.info("SQL: {}", sql);
-	    prs = con.prepareStatement(sql);
-
-	    for (int i = 0; i < values.length; i++) {
-		setPreparedStatement(prs, values[i].getClass().getTypeName(), 1 + i, values[i]);
-	    }
-	    prs.executeUpdate();
-	    refreshCache(nomtable);
-	} catch (Exception ex) {
-	    throw ex;
-	} finally {
-	    if (prs != null) {
-		prs.close();
-	    }
-	}
+    public static void update(Object obj, Connection con, String afterWhere, Object... afterWhereValues) throws Exception {
+        try {
+            Class instance = obj.getClass();
+            String tableName = getNomTable(instance);
+            update(obj, tableName, con, afterWhere, afterWhereValues);
+        } catch (Exception e) {
+            throw e;
+        }
     }
 
     /**
@@ -1150,126 +453,196 @@ public class GenericRepo {
      * @throws Exception
      */
     public static void update(String nomtable, String toupdate, String condition, Connection con) throws Exception {
-	PreparedStatement prs = null;
-	try {
-	    if (toupdate == null || toupdate.trim().equalsIgnoreCase("")) {
-		throw new Exception("Requete à mettre à jour non trouvé !");
-	    }
-	    String sql = "update " + nomtable + " set " + toupdate;
-	    if (condition != null && !condition.trim().equals("")) {
-		sql += " where " + condition;
-	    }
-	    LOGGER.info("SQL: {}", sql);
-	    prs = con.prepareStatement(sql);
-	    prs.executeUpdate();
-	    refreshCache(nomtable);
-	} catch (Exception ex) {
-	    throw ex;
-	} finally {
-	    if (prs != null) {
-		prs.close();
-	    }
-	}
+        PreparedStatement ps = null;
+        try {
+            if (toupdate == null || toupdate.trim().equalsIgnoreCase("")) {
+                throw new Exception("Requete à mettre à jour non trouvé !");
+            }
+            String sql = "update " + nomtable + " set " + toupdate;
+            if (condition != null && !condition.trim().equals("")) {
+                sql += " where " + condition;
+            }
+            LOGGER.debug("SQL: {}", sql);
+            ps = con.prepareStatement(sql);
+            ps.executeUpdate();
+            refreshCache(nomtable);
+        } catch (Exception ex) {
+            throw ex;
+        } finally {
+            if (ps != null) {
+                ps.close();
+            }
+        }
     }
 
     /**
      * Fonction pour supprimer un element d'une table
      *
      * @param nomtable
-     * @param condition
      * @param con
+     * @param rawCondition
+     * @param rawConditionValues
      * @throws Exception
      */
-    public static void delete(String nomtable, String condition, Connection con) throws Exception {
-	PreparedStatement prs = null;
-	String sql;
-	try {
-	    sql = "delete from " + nomtable + " ";
-	    if (!(condition == null || condition.trim().equalsIgnoreCase(""))) {
-		sql += " where " + condition;
-	    }
-	    LOGGER.info("SQL: {}", sql);
-	    prs = con.prepareStatement(sql);
-	    prs.executeUpdate();
-	    refreshCache(nomtable);
-	} catch (SQLException ex) {
-	    throw ex;
-	} finally {
-	    if (prs != null) {
-		prs.close();
-	    }
-	}
+    public static void delete(String nomtable, Connection con, String rawCondition, Object... rawConditionValues) throws Exception {
+        PreparedStatement ps = null;
+        String sql;
+        try {
+            verifyRawSqlCount(rawCondition, rawConditionValues);
+            sql = "delete from " + nomtable + " ";
+            if (rawCondition != null && !rawCondition.equals("")) {
+                sql += " where " + rawCondition;
+            }
+            LOGGER.debug("SQL: {}", sql);
+            ps = con.prepareStatement(sql);
+            int position = 1;
+            for (Object rawConditionValue : rawConditionValues) {
+                setPreparedStatement(ps, rawConditionValue.getClass().getTypeName(), position, rawConditionValue);
+                position++;
+            }
+            ps.executeUpdate();
+            refreshCache(nomtable);
+        } catch (SQLException ex) {
+            throw ex;
+        } finally {
+            if (ps != null) {
+                ps.close();
+            }
+        }
     }
 
     /**
      * Fonction pour supprimer un element d'une table en utilisant un objet
      * comme condition
      *
-     * @param objet
+     * @param obj
      * @param con
      * @throws Exception
      */
-    public static void delete(Object objet, Connection con) throws Exception {
-	PreparedStatement prs = null;
-	String sql;
-	Column annot;
-	String colonne;
-	Class instance = objet.getClass();
-	Object obj;
-	Method m;
-	try {
-	    verifyTable(instance);
-	    String tableName = getNomTable(instance);
-	    sql = "delete from " + tableName + " where 4=4 ";
-	    List<Field> field = getAllField(instance);
-	    List<Object> condition = new ArrayList<>();
-	    List<Integer> indfield = new ArrayList();
-	    for (int i = 0; i < field.size(); i++) {
-		annot = (Column) field.get(i).getAnnotation(Column.class);
-		if (annot != null) {
-		    colonne = annot.name();
-		    try {
-			m = instance.getMethod("get" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    } catch (Exception exx) {
-			m = instance.getMethod("is" + toUpperCase(field.get(i).getName()), new Class[0]);
-		    }
-		    obj = m.invoke(objet, new Object[0]);
-		    if (obj != null) {
-			condition.add(obj);
-			indfield.add(i);
-			sql += " and " + colonne + " = ? ";
-		    }
-		}
-	    }
-	    LOGGER.info("SQL: {}", sql);
-	    prs = con.prepareStatement(sql);
-	    for (int i = 0; i < condition.size(); i++) {
-		setPreparedStatement(prs, field.get(indfield.get(i)).getType().getName(), i + 1, condition.get(i));
-	    }
-	    prs.executeUpdate();
-	    refreshCache(tableName);
-	} catch (Exception ex) {
-	    con.rollback();
-	    throw ex;
-	} finally {
-	    if (prs != null) {
-		prs.close();
-	    }
-	}
+    public static void delete(Object obj, Connection con) throws Exception {
+        PreparedStatement ps = null;
+        String sql;
+        Column annot;
+        String colonne;
+        Method m;
+        Class instance = obj.getClass();
+        try {
+            verifyTable(instance);
+            String tableName = getNomTable(instance);
+            sql = "delete from " + tableName + " where 4=4 ";
+            List<Field> fields = getAllField(instance);
+            removeNullFields(fields, obj);
+
+            for (int i = 0; i < fields.size(); i++) {
+                annot = getCulumnAnnotationName(fields.get(i));
+                colonne = annot.name();
+                sql += " and " + colonne + " = ? ";
+
+            }
+            LOGGER.debug("SQL: {}", sql);
+            ps = con.prepareStatement(sql);
+            int position = 1;
+            for (int i = 0; i < fields.size(); i++) {
+                m = instance.getMethod("get" + toUpperCase(fields.get(i).getName()), new Class[0]);
+                setPreparedStatement(ps, fields.get(i).getType().getName(), position, m.invoke(obj, new Object[0]));
+                position++;
+            }
+            ps.executeUpdate();
+            refreshCache(tableName);
+        } catch (Exception ex) {
+            con.rollback();
+            throw ex;
+        } finally {
+            if (ps != null) {
+                ps.close();
+            }
+        }
     }
 
     /*debut des fonctions helper*/
-    private static String buildSql(String nomTable, String[] afterWhere) {
-	String request = "";
-	request += "select * from " + nomTable + " where ";
-	for (int i = 0; i < afterWhere.length; i++) {
-	    if (i != afterWhere.length - 1) {
-		request += afterWhere[i] + "=? and ";
-	    } else {
-		request += afterWhere[i] + "=?";
-	    }
-	}
-	return request;
+    private static int ignoreInt = -776;
+    private static double ignoreDouble = -776;
+    private static float ignoreFloat = -776;
+
+    private static boolean fieldHasColumnAnnotation(Field field) {
+        Column annot = (Column) field.getAnnotation(Column.class);
+        return annot != null;
+    }
+
+    private static Column getCulumnAnnotationName(Field field) {
+        return (Column) field.getAnnotation(Column.class);
+    }
+
+    private static void verifyRawSqlCount(String rawSql, Object... rawSqlValues) throws Exception {
+        int countRawParameters = countCharacter('?', rawSql);
+        if (rawSqlValues.length != countRawParameters) {
+            throw new Exception("Le nombre de ? dans <rawSql> doit etre identique au nombre de parametres dans <rawSqlValue>.");
+        }
+    }
+
+    private static void removeNullFields(List<Field> fields, Object obj)
+            throws Exception {
+
+        Class instance = obj.getClass();
+        Method m;
+        boolean noColumnAnnotation = true;
+        for (int i = 0; i < fields.size(); i++) {
+            m = instance.getMethod("get" + toUpperCase(fields.get(i).getName()), new Class[0]);
+            if (fieldValueIsNull(fields.get(i).getType().getName(), m.invoke(obj, new Object[0])) || !fieldHasColumnAnnotation(fields.get(i))) {
+                fields.remove(i);
+            }
+            if (fieldHasColumnAnnotation(fields.get(i))) {
+                noColumnAnnotation = false;
+            }
+        }
+        if (noColumnAnnotation == true) {
+            throw new Exception("Aucune Annotation Column Spécifiés !");
+        }
+    }
+
+    private static <E> void getResultAsList(ResultSet rs, List<Field> fields, List<E> o, Class instance) throws Exception {
+        E objRetTemp;
+        Column annot;
+
+        String colonne;
+        Method m;
+        while (rs.next()) {
+            objRetTemp = (E) instance.getConstructor(new Class[0]).newInstance();
+            for (int i = 0; i < fields.size(); i++) {
+                annot = getCulumnAnnotationName(fields.get(i));
+                colonne = annot.name();
+                m = instance.getMethod("set" + toUpperCase(fields.get(i).getName()), fields.get(i).getType());
+                getAndSetResult(objRetTemp, rs, m, colonne, fields.get(i).getType().getName());
+
+            }
+            o.add(objRetTemp);
+        }
+    }
+
+    private static int countCharacter(char c, String str) {
+        char[] a = str.toCharArray();
+        int count = 0;
+        for (int i = 0; i < a.length; i++) {
+            if (a[i] == c) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static boolean fieldValueIsNull(String fieldType, Object data)
+            throws IllegalArgumentException, IllegalAccessException {
+
+        switch (fieldType) {
+            case "int":
+                return (int) data == ignoreInt;
+            case "double":
+                return (double) data == ignoreDouble;
+            case "float":
+                return (float) data == ignoreFloat;
+            default:
+                return data == null;
+        }
     }
 
     /**
@@ -1279,16 +652,16 @@ public class GenericRepo {
      * @throws Exception
      */
     private static void verifyTable(Class instance) throws Exception {
-	try {
-	    if (instance.getAnnotation(Entity.class) == null) {
-		throw new Exception("Aucune Annotation de Entite Spécifié !");
-	    }
-	    if (instance.getAnnotation(Table.class) == null) {
-		throw new Exception("Aucune Annotation de table Spécifié !");
-	    }
-	} catch (Exception e) {
-	    throw e;
-	}
+        try {
+            if (instance.getAnnotation(Entity.class) == null) {
+                throw new Exception("Aucune Annotation de Entite Spécifié !");
+            }
+            if (instance.getAnnotation(Table.class) == null) {
+                throw new Exception("Aucune Annotation de table Spécifié !");
+            }
+        } catch (Exception e) {
+            throw e;
+        }
     }
 
     /**
@@ -1301,44 +674,45 @@ public class GenericRepo {
      * @throws Exception
      */
     private static void setPreparedStatement(PreparedStatement ps, String nomtypefield, int nbcolonne, Object g) throws Exception {
-	switch (nomtypefield) {
-	    case "java.lang.Double":
-	    case "double":
-		ps.setDouble(nbcolonne, (Double) g);
-		break;
-	    case "boolean":
-		ps.setBoolean(nbcolonne, (boolean) g);
-		break;
-	    case "int":
-	    case "java.lang.Integer":
-		ps.setInt(nbcolonne, (int) g);
-		break;
-	    case "org.postgresql.util.PGInterval":
-		ps.setObject(nbcolonne, (PGInterval) g);
-		break;
-	    case "java.lang.String":
-		ps.setString(nbcolonne, (String) g);
-		break;
-	    case "java.sql.Date":
-	    case "java.util.Date":
-		if (g == null) {
-		    ps.setDate(nbcolonne, null);
-		} else {
-		    ps.setDate(nbcolonne, Date.valueOf(g.toString()));
-		}
-		break;
-	    case "float":
-		ps.setFloat(nbcolonne, (float) g);
-		break;
-	    case "java.sql.Timestamp":
-		ps.setTimestamp(nbcolonne, Timestamp.valueOf(g.toString()));
-		break;
-	    case "java.sql.Time":
-		ps.setTime(nbcolonne, Time.valueOf(g.toString()));
-		break;
-	    default:
-		break;
-	}
+        switch (nomtypefield) {
+            case "java.lang.Double":
+            case "double":
+                ps.setDouble(nbcolonne, (Double) g);
+                break;
+            case "boolean":
+                ps.setBoolean(nbcolonne, (boolean) g);
+                break;
+            case "int":
+            case "java.lang.Integer":
+                ps.setInt(nbcolonne, (int) g);
+                break;
+            case "org.postgresql.util.PGInterval":
+                ps.setObject(nbcolonne, (PGInterval) g);
+                break;
+            case "java.lang.String":
+                ps.setString(nbcolonne, (String) g);
+                break;
+            case "java.sql.Date":
+            case "java.util.Date":
+                if (g == null) {
+                    ps.setDate(nbcolonne, null);
+                } else {
+                    ps.setDate(nbcolonne, Date.valueOf(g.toString()));
+                }
+                break;
+            case "float":
+                ps.setFloat(nbcolonne, (float) g);
+                break;
+            case "java.sql.Timestamp":
+                ps.setTimestamp(nbcolonne, Timestamp.valueOf(g.toString()));
+                break;
+            case "java.sql.Time":
+                ps.setTime(nbcolonne, Time.valueOf(g.toString()));
+                break;
+            default:
+                ps.setObject(nbcolonne, g);
+                break;
+        }
     }
 
     /**
@@ -1348,11 +722,11 @@ public class GenericRepo {
      * @return
      */
     private static String getNomTable(Class instance) {
-	try {
-	    return ((Table) instance.getAnnotation(Table.class)).name();
-	} catch (Exception e) {
-	    throw e;
-	}
+        try {
+            return ((Table) instance.getAnnotation(Table.class)).name();
+        } catch (Exception e) {
+            throw e;
+        }
     }
 
     /**
@@ -1366,59 +740,18 @@ public class GenericRepo {
      * @throws Exception
      */
     private static ResultSet executeStatementSelect(PreparedStatement ps, String condition, String tableName, Class instance) throws Exception {
-	try {
-	    return ps.executeQuery();
-	} catch (Exception e) {
-	    if (condition == null) {
-		throw new Exception("Le nom de table '" + tableName + "', spécifié dans la Classe " + instance.getName() + " n'existe pas !");
-	    } else {
-		throw new Exception("Veuillez vérifier la condition entrée et/ou le nom de table '" + tableName + "', spécifié dans la Classe " + instance.getName());
-	    }
-	}
-    }
-
-    /**
-     * Pour récuperer tous les Fields de la classe , y compris ceux de sa classe
-     * mère etc -Methode 1
-     *
-     * @param instance
-     * @param columncount
-     * @param tablename
-     * @return
-     * @throws Exception
-     */
-    private static List<Field> getAllField(Class instance, ResultSetMetaData meta, String tablename) throws Exception {
-	Class superClasse;
-	List<Field> field = new ArrayList();
-	superClasse = instance;
-	int nbannot = 0;
-	int nbannotValide = 0;
-	int columncount = meta.getColumnCount();
-	while (!superClasse.getName().equals("java.lang.Object")) {
-	    Field[] attribut = superClasse.getDeclaredFields();
-	    for (int i = 0; i < attribut.length; i++) {
-		if (attribut[i].getAnnotation(Column.class) != null) {
-		    //ze manana annotation collone ihany no alaina, tsy maka anle tableau ohatra
-		    //de ze misy any anaaty resultset ihany koa no alaina
-
-		    nbannot++;
-		    if (tableHasColumn(attribut[i].getAnnotation(Column.class).name(), meta)) {
-			field.add(attribut[i]);
-			nbannotValide++;
-		    }
-		}
-	    }
-	    superClasse = superClasse.getSuperclass();
-	}
-	if (nbannot == 0) {
-	    throw new Exception("Aucune Annotation d'Colonne Spécifiés !");
-	}
-	if (columncount != nbannotValide) {
-//	    LOGGER.info("Le Nombre d'Annotation d'Colonne trouvé en partant de la Classe "
-//		    + "{} et le Nombre de Colonne dans la Table {} ne correspondent pas !", instance.getName(), tablename);
-//	    LOGGER.info("nombre total annotation {} | nombre annotation valide {} | nombre colonne dans table {}", nbannot, nbannotValide, columncount);
-	}
-	return field;
+        try {
+            return ps.executeQuery();
+        } catch (SQLException e) {
+            if (condition == null) {
+                String error = String.format("Le nom de table '%s', spécifié dans la Classe %s n'existe pas !", tableName, instance.getName());
+                throw new Exception(error);
+            } else {
+                String error = String.format("Veuillez vérifier la condition '%s' entrée et/ou le nom de table '%s', spécifié dans la Classe %s",
+                        condition, tableName, instance.getName());
+                throw new Exception(error);
+            }
+        }
     }
 
     /**
@@ -1430,37 +763,25 @@ public class GenericRepo {
      * @throws Exception
      */
     private static List<Field> getAllField(Class instance) throws Exception {
-	Class superClasse;
-	List<Field> field = new ArrayList();
-	superClasse = instance;
-	int nbannot = 0;
-	while (!superClasse.getName().equals("java.lang.Object")) {
-	    Field[] attribut = superClasse.getDeclaredFields();
-	    for (Field attribut1 : attribut) {
-		if (attribut1.getAnnotation(Column.class) != null) {
-		    //ze manana annotation collone ihany no alaina, tsy maka anle tableau ohatra
-		    field.add(attribut1);
-		    nbannot++;
-		}
-	    }
-	    superClasse = superClasse.getSuperclass();
-	}
-	if (nbannot == 0) {
-	    throw new Exception("Aucune Annotation d'Attributs Spécifiés !");
-	}
-	return field;
-    }
-
-    private static boolean tableHasColumn(String column, ResultSetMetaData meta) throws SQLException {
-	boolean result = false;
-	int columnCount = meta.getColumnCount();
-	for (int i = 0; i < columnCount; i++) {
-	    if (meta.getColumnLabel(i + 1).equals(column)) {
-		result = true;
-		break;
-	    }
-	}
-	return result;
+        Class superClasse;
+        List<Field> field = new ArrayList();
+        superClasse = instance;
+        int nbannot = 0;
+        while (!superClasse.getName().equals("java.lang.Object")) {
+            Field[] attribut = superClasse.getDeclaredFields();
+            for (Field attribut1 : attribut) {
+                if (attribut1.getAnnotation(Column.class) != null) {
+                    //ze manana annotation collone ihany no alaina, tsy maka anle tableau ohatra
+                    field.add(attribut1);
+                    nbannot++;
+                }
+            }
+            superClasse = superClasse.getSuperclass();
+        }
+        if (nbannot == 0) {
+            throw new Exception("Aucune Annotation d'Attributs Spécifiés !");
+        }
+        return field;
     }
 
     /**
@@ -1474,42 +795,41 @@ public class GenericRepo {
      * @throws Exception
      */
     private static void getAndSetResult(Object obj, ResultSet rs, Method m, String colonne, String nomtypefield) throws Exception {
-//	LOGGER.info("obj: {}", obj.getClass().getSimpleName());
-//	LOGGER.info("obj: {}", obj.getClass());
-	switch (nomtypefield) {
-	    case "java.lang.String":
-		m.invoke(obj, rs.getString(colonne));
-		break;
-	    case "java.lang.Double":
-	    case "double":
-		m.invoke(obj, rs.getDouble(colonne));
-		break;
-	    case "int":
-	    case "java.lang.Integer":
-		m.invoke(obj, rs.getInt(colonne));
-		break;
-	    case "org.postgresql.util.PGInterval":
-		m.invoke(obj, (PGInterval) rs.getObject(colonne));
-		break;
-	    case "java.sql.Date":
-	    case "java.util.Date":
-		m.invoke(obj, rs.getDate(colonne));
-		break;
-	    case "boolean":
-		m.invoke(obj, rs.getBoolean(colonne));
-		break;
-	    case "float":
-		m.invoke(obj, rs.getFloat(colonne));
-		break;
-	    case "java.sql.Timestamp":
-		m.invoke(obj, rs.getTimestamp(colonne));
-		break;
-	    case "java.sql.Time":
-		m.invoke(obj, rs.getTime(colonne));
-		break;
-	    default:
-		break;
-	}
+        switch (nomtypefield) {
+            case "java.lang.String":
+                m.invoke(obj, rs.getString(colonne));
+                break;
+            case "java.lang.Double":
+            case "double":
+                m.invoke(obj, rs.getDouble(colonne));
+                break;
+            case "int":
+            case "java.lang.Integer":
+                m.invoke(obj, rs.getInt(colonne));
+                break;
+            case "org.postgresql.util.PGInterval":
+                m.invoke(obj, (PGInterval) rs.getObject(colonne));
+                break;
+            case "java.sql.Date":
+            case "java.util.Date":
+                m.invoke(obj, rs.getDate(colonne));
+                break;
+            case "boolean":
+                m.invoke(obj, rs.getBoolean(colonne));
+                break;
+            case "float":
+                m.invoke(obj, rs.getFloat(colonne));
+                break;
+            case "java.sql.Timestamp":
+                m.invoke(obj, rs.getTimestamp(colonne));
+                break;
+            case "java.sql.Time":
+                m.invoke(obj, rs.getTime(colonne));
+                break;
+            default:
+                m.invoke(obj, rs.getObject(colonne));
+                break;
+        }
     }
 
     /**
@@ -1519,10 +839,34 @@ public class GenericRepo {
      * @return ToUpperCase
      */
     private static String toUpperCase(String arg) {
-	char[] name = arg.toCharArray();
-	name[0] = Character.toUpperCase(name[0]);
-	arg = String.valueOf(name);
-	return arg;
+        char[] name = arg.toCharArray();
+        name[0] = Character.toUpperCase(name[0]);
+        arg = String.valueOf(name);
+        return arg;
+    }
+
+    public int getIgnoreInt() {
+        return ignoreInt;
+    }
+
+    public void setIgnoreInt(int aIgnoreInt) {
+        ignoreInt = aIgnoreInt;
+    }
+
+    public double getIgnoreDouble() {
+        return ignoreDouble;
+    }
+
+    public static void setIgnoreDouble(double aignoreDouble) {
+        ignoreDouble = aignoreDouble;
+    }
+
+    public float getIgnoreFloat() {
+        return ignoreFloat;
+    }
+
+    public static void setIgnoreFloat(float aignoreFloat) {
+        ignoreFloat = aignoreFloat;
     }
 
 }

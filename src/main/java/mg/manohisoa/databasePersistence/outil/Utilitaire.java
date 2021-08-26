@@ -3,11 +3,13 @@ package mg.manohisoa.databasePersistence.outil;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.LocalTime;
+import java.util.List;
 
 public class Utilitaire {
 
@@ -23,6 +25,10 @@ public class Utilitaire {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         String date = sdf.format(new java.util.Date());
         return date;
+    }
+
+    public static Date currentDate() {
+        return new Date(new java.util.Date().getTime());
     }
 
     public static Timestamp getCurrentTimeStamp() {
@@ -43,25 +49,13 @@ public class Utilitaire {
         return arg;
     }
 
-    /// Fonction pour avoir la séquence
-    public static String getsequenceOracle(String nomSequence, Connection c) throws Exception {
-        String seq = null;
-        String requete = " SELECT " + nomSequence + ".nextval as nb from Dual";
-        ResultSet rs2;
-        try (Statement st2 = c.createStatement()) {
-            rs2 = st2.executeQuery(requete);
-            while (rs2.next()) {
-                seq = rs2.getString("nb");
-                break;
-            }
-        }
-        rs2.close();
-        return seq;
+    public static String getIdFromSequence(String sequence, Connection con, int length) throws Exception {
+        return formatNumber(getNextVal(sequence, con), length);
     }
 
-    public static String getsequencePg(String nomSequence, Connection c) throws Exception {
+    public static String getNextVal(String nomSequence, Connection c) throws Exception {
         String seq = null;
-        String requete = " SELECT nextval('" + nomSequence + "') as nb";
+        String requete = " SELECT " + nomSequence + ".nextval as nb from Dual";
         ResultSet rs2;
         try (Statement st2 = c.createStatement()) {
             rs2 = st2.executeQuery(requete);
@@ -100,6 +94,32 @@ public class Utilitaire {
             throw e;
         }
         return generatedPassword;
+    }
+
+    public static String buildInQuery(String[] ids) {
+        String ret = " in (";
+        for (int i = 0; i < ids.length; i++) {
+            if (i != ids.length - 1) {
+                ret += "'" + ids[i] + "',";
+            } else {
+                ret += "'" + ids[i] + "'";
+            }
+        }
+        ret += ")";
+        return ret;
+    }
+
+    public static String buildInQuery(List<String> ids) {
+        String ret = " in (";
+        for (int i = 0; i < ids.size(); i++) {
+            if (i != ids.size() - 1) {
+                ret += "'" + ids.get(i) + "',";
+            } else {
+                ret += "'" + ids.get(i) + "'";
+            }
+        }
+        ret += ")";
+        return ret;
     }
 
     public static boolean checkEmail(String email) throws Exception {

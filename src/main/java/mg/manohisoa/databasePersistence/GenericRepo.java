@@ -182,17 +182,14 @@ public class GenericRepo {
                 sql += " where " + rawSql;
             }
             List<Field> fields = getAllField(instance);
-            removeNullFields(fields, result);
-
             ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
             String req = ps.toString();
-            LOGGER.debug("SQL: {}", req);
+            LOGGER.debug("SQL: {}", sql);
             for (int i = 0; i < rawSqlValues.length; i++) {
                 setPreparedStatement(ps, rawSqlValues[i].getClass().getTypeName(), i + 1, rawSqlValues[i]);
             }
             result = getResultFromCache(tableName, req);
             if (result == null) {
-
                 rs = executeStatementSelect(ps, rawSql, tableName, instance);
                 result = new ArrayList<>();
                 getResultAsList(rs, fields, result, instance);
@@ -249,7 +246,7 @@ public class GenericRepo {
             verifyTable(instance);
             String sql = "Select * from " + tableName + " where 4=4 ";
             List<Field> fields = getAllField(instance);
-            removeNullFields(fields, result);
+            removeNullFields(fields, getInstanceFromClass(instance));
             for (int i = 0; i < fields.size(); i++) {
                 annot = getCulumnAnnotationName(fields.get(i));
                 colonne = annot.name();
@@ -330,7 +327,7 @@ public class GenericRepo {
                     into += colonne;
                     values += "?";
                 } else {
-                    requete += "," + colonne;
+                    into += "," + colonne;
                     values += ",?";
                 }
             }
@@ -369,8 +366,8 @@ public class GenericRepo {
     }
 
     /**
-     * update sans prendre en compte le primary key comme condition la condition
-     * doit etre faite a la main
+     * update sans prendre en compte le primary key comme condition. la
+     * condition doit etre faite a la main
      *
      * @param obj
      * @param tableName
@@ -560,6 +557,8 @@ public class GenericRepo {
     }
 
     /*debut des fonctions helper*/
+    //we can make the variable volatile so that it is thread-safe
+    //this is only usefull in a multiple thread environment
     private static int ignoreInt = -776;
     private static double ignoreDouble = -776;
     private static float ignoreFloat = -776;
@@ -574,10 +573,13 @@ public class GenericRepo {
     }
 
     private static void verifyRawSqlCount(String rawSql, Object... rawSqlValues) throws Exception {
-        int countRawParameters = countCharacter('?', rawSql);
-        if (rawSqlValues.length != countRawParameters) {
-            throw new Exception("Le nombre de ? dans <rawSql> doit etre identique au nombre de parametres dans <rawSqlValue>.");
+        if (rawSql != null) {
+            int countRawParameters = countCharacter('?', rawSql);
+            if (rawSqlValues.length != countRawParameters) {
+                throw new Exception("Le nombre de ? dans <rawSql> doit etre identique au nombre de parametres dans <rawSqlValue>.");
+            }
         }
+
     }
 
     private static void removeNullFields(List<Field> fields, Object obj)
@@ -586,10 +588,13 @@ public class GenericRepo {
         Class instance = obj.getClass();
         Method m;
         boolean noColumnAnnotation = true;
+        List<Field> newfields = new ArrayList<>();
+        Object temp;
         for (int i = 0; i < fields.size(); i++) {
             m = instance.getMethod("get" + toUpperCase(fields.get(i).getName()), new Class[0]);
-            if (fieldValueIsNull(fields.get(i).getType().getName(), m.invoke(obj, new Object[0])) || !fieldHasColumnAnnotation(fields.get(i))) {
-                fields.remove(i);
+            temp = m.invoke(obj, new Object[0]);
+            if (!fieldValueIsNull(fields.get(i).getType().getName(), temp) && fieldHasColumnAnnotation(fields.get(i))) {
+                newfields.add(fields.get(i));
             }
             if (fieldHasColumnAnnotation(fields.get(i))) {
                 noColumnAnnotation = false;
@@ -598,6 +603,15 @@ public class GenericRepo {
         if (noColumnAnnotation == true) {
             throw new Exception("Aucune Annotation Column Spécifiés !");
         }
+        fields.clear();
+        for (Field newfield : newfields) {
+            fields.add(newfield);
+        }
+
+    }
+
+    private static <E> Object getInstanceFromClass(Class instance) throws Exception {
+        return (E) instance.getConstructor(new Class[0]).newInstance();
     }
 
     private static <E> void getResultAsList(ResultSet rs, List<Field> fields, List<E> o, Class instance) throws Exception {

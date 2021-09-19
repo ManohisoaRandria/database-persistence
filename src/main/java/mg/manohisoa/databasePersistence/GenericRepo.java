@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -181,7 +182,7 @@ public class GenericRepo {
             if (rawSql != null && !rawSql.equals("")) {
                 sql += " where " + rawSql;
             }
-            List<Field> fields = getAllField(instance);
+
             ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
             String req = ps.toString();
             LOGGER.debug("SQL: {}", sql);
@@ -191,6 +192,7 @@ public class GenericRepo {
             result = getResultFromCache(tableName, req);
             if (result == null) {
                 rs = executeStatementSelect(ps, rawSql, tableName, instance);
+                List<Field> fields = getAllField(instance, rs.getMetaData());
                 result = new ArrayList<>();
                 getResultAsList(rs, fields, result, instance);
                 //set the response into the cache
@@ -245,7 +247,7 @@ public class GenericRepo {
         try {
             verifyTable(instance);
             String sql = "Select * from " + tableName + " where 4=4 ";
-            List<Field> fields = getAllField(instance);
+            List<Field> fields = getAllField(instance, null);
             removeNullFields(fields, getInstanceFromClass(instance));
             for (int i = 0; i < fields.size(); i++) {
                 annot = getCulumnAnnotationName(fields.get(i));
@@ -316,7 +318,7 @@ public class GenericRepo {
         try {
             verifyTable(instance);
             requete = "INSERT INTO " + tableName + "(";
-            List<Field> fields = getAllField(instance);
+            List<Field> fields = getAllField(instance, null);
             removeNullFields(fields, obj);
             String into = " ";
             String values = " ";
@@ -387,7 +389,7 @@ public class GenericRepo {
             verifyRawSqlCount(afterWhere, afterWhereValues);
 
             String sql = "update " + tableName + " set ";
-            List<Field> fields = getAllField(instance);
+            List<Field> fields = getAllField(instance, null);
             removeNullFields(fields, obj);
 
             for (int i = 0; i < fields.size(); i++) {
@@ -527,7 +529,7 @@ public class GenericRepo {
             verifyTable(instance);
             String tableName = getNomTable(instance);
             sql = "delete from " + tableName + " where 4=4 ";
-            List<Field> fields = getAllField(instance);
+            List<Field> fields = getAllField(instance, null);
             removeNullFields(fields, obj);
 
             for (int i = 0; i < fields.size(); i++) {
@@ -776,7 +778,7 @@ public class GenericRepo {
      * @return
      * @throws Exception
      */
-    private static List<Field> getAllField(Class instance) throws Exception {
+    private static List<Field> getAllField(Class instance, ResultSetMetaData meta) throws Exception {
         Class superClasse;
         List<Field> field = new ArrayList();
         superClasse = instance;
@@ -786,7 +788,14 @@ public class GenericRepo {
             for (Field attribut1 : attribut) {
                 if (attribut1.getAnnotation(Column.class) != null) {
                     //ze manana annotation collone ihany no alaina, tsy maka anle tableau ohatra
-                    field.add(attribut1);
+                    if (meta == null) {
+                        field.add(attribut1);
+                    } else {
+                        if (tableHasColumn(attribut1.getAnnotation(Column.class).name(), meta)) {
+                            field.add(attribut1);
+                        }
+                    }
+
                     nbannot++;
                 }
             }
@@ -796,6 +805,18 @@ public class GenericRepo {
             throw new Exception("Aucune Annotation d'Attributs Spécifiés !");
         }
         return field;
+    }
+
+    private static boolean tableHasColumn(String column, ResultSetMetaData meta) throws SQLException {
+        boolean result = false;
+        int columnCount = meta.getColumnCount();
+        for (int i = 0; i < columnCount; i++) {
+            if (meta.getColumnLabel(i + 1).equals(column)) {
+                result = true;
+                break;
+            }
+        }
+        return result;
     }
 
     /**

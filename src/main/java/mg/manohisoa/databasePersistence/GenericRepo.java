@@ -806,6 +806,19 @@ public class GenericRepo {
         }
     }
 
+    private static String changeSlashToTiretInDate(String date) {
+        if (date != null) {
+            if (date.contains("/")) {
+                String[] a = date.split("/");
+
+                return a[2] + "-" + a[1] + "-" + a[0];
+            }
+            return date;
+        }
+
+        return null;
+    }
+
     /**
      * Avec prise en charge d'annotation, héritage, insertion d'Attribut tableau
      * Ne Marche pas si l'object entrée ne respecte pas les normes d'annotation
@@ -1324,7 +1337,7 @@ public class GenericRepo {
                 if (g == null) {
                     ps.setDate(nbcolonne, null);
                 } else {
-                    ps.setDate(nbcolonne, Date.valueOf(g.toString()));
+                    ps.setDate(nbcolonne, Date.valueOf(changeSlashToTiretInDate(g.toString())));
                 }
                 break;
             case "float":

@@ -1,34 +1,36 @@
 package mg.manohisoa.databasePersistence.outil;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.Date;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
 import java.sql.Timestamp;
-import java.text.SimpleDateFormat;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import mg.manohisoa.databasePersistence.annotation.Column;
+import mg.manohisoa.databasePersistence.annotation.Entity;
+import org.postgresql.util.PGInterval;
 
 public class Utilitaire {
 
     public final static String REGEX_EMAIL = "^[\\w-_\\.+]*[\\w-_\\.]\\@([\\w]+\\.)+[\\w]+[\\w]$";
-    public static final int DEFAULT_CACHE_DURATION = 30;//in minutes
+    public static final int DEFAULT_CACHE_DURATION = 1440;//in minutes
 
-    public static String getCurrentTime() {
-        LocalTime lt = LocalTime.now();
-        return lt.toString();
-    }
-
-    public static String getCurrentDate() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-        String date = sdf.format(new java.util.Date());
-        return date;
-    }
-
-    public static Date currentDate() {
+    public static Date getCurrentDate() {
         return new Date(new java.util.Date().getTime());
+    }
+
+    public static java.util.Date getCurrentDateUtil() {
+        return new java.util.Date();
     }
 
     public static Timestamp getCurrentTimeStamp() {
@@ -38,11 +40,13 @@ public class Utilitaire {
     }
 
     ///Date et Heure + tempsmin
-    public static Timestamp getTimeStamp(Timestamp ts, int min) {
-        return new Timestamp(ts.getYear(), ts.getMonth(), ts.getDate(), ts.getHours(), ts.getMinutes() + min, ts.getSeconds(), 0);
+    public static Timestamp addMinuteToTimestamp(Timestamp ts, int min) {
+        LocalDateTime time = ts.toLocalDateTime();
+        LocalDateTime timePlus = time.plusMinutes(min);
+        return Timestamp.valueOf(timePlus);
     }
 
-    public String toUpperCase(String arg) {
+    public static String capitalize(String arg) {
         char[] name = arg.toCharArray();
         name[0] = Character.toUpperCase(name[0]);
         arg = String.valueOf(name);
@@ -62,6 +66,18 @@ public class Utilitaire {
         }
         rs2.close();
         return seq;
+    }
+
+    public boolean tableHasColumn(String column, ResultSetMetaData meta) throws SQLException {
+        boolean result = false;
+        int columnCount = meta.getColumnCount();
+        for (int i = 0; i < columnCount; i++) {
+            if (meta.getColumnLabel(i + 1).equals(column)) {
+                result = true;
+                break;
+            }
+        }
+        return result;
     }
 
     public static String formatNumber(String seqValue, int ordre) throws Exception {
@@ -133,6 +149,258 @@ public class Utilitaire {
             return val;
         }
     }
+
+    public static <E> int setPreparedStatementValue(List<Field> fields, E critere, Class instance, PreparedStatement ps, Object... rawSqlValues) throws Exception {
+        Method m;
+        int last = 1;
+        for (int i = 0; i < fields.size(); i++) {
+            m = instance.getMethod("get" + Utilitaire.capitalize(fields.get(i).getName()), new Class[0]);
+            setPreparedStatement(ps, fields.get(i).getType().getName(), i + 1, m.invoke(critere, new Object[0]));
+            last++;
+        }
+        for (int i = 0; i < rawSqlValues.length; i++) {
+            setPreparedStatement(ps, rawSqlValues[i].getClass().getTypeName(), fields.size() + i + 1, rawSqlValues[i]);
+            last++;
+        }
+        return last;
+    }
+
+    public static String buildRequestBasedOnField(List<Field> fields) {
+        Column annot;
+        String colonne;
+        String sql = "";
+        for (int i = 0; i < fields.size(); i++) {
+            annot = getColumnAnnotationName(fields.get(i));
+            colonne = annot.name();
+            sql += " and " + colonne + " = ? ";
+        }
+        return sql;
+    }
+
+    public static boolean fieldHasColumnAnnotation(Field field) {
+        Column annot = (Column) field.getAnnotation(Column.class);
+        return annot != null;
+    }
+
+    public static Column getColumnAnnotationName(Field field) {
+        return (Column) field.getAnnotation(Column.class);
+    }
+
+    public static void verifyRawSqlCount(String rawSql, Object... rawSqlValues) throws Exception {
+        if (rawSql != null) {
+            int countRawParameters = countCharacter('?', rawSql);
+            if (rawSqlValues.length != countRawParameters) {
+                throw new Exception("Le nombre de ? dans <rawSql> doit etre identique au nombre de parametres dans <rawSqlValue>.");
+            }
+        }
+
+    }
+
+    public static <E> void getResultAsList(ResultSet rs, List<Field> fields, List<E> o, Class instance) throws Exception {
+        E objRetTemp;
+        Column annot;
+
+        String colonne;
+        Method m;
+        while (rs.next()) {
+            objRetTemp = (E) instance.getConstructor(new Class[0]).newInstance();
+            for (int i = 0; i < fields.size(); i++) {
+                annot = getColumnAnnotationName(fields.get(i));
+                colonne = annot.name();
+                m = instance.getMethod("set" + Utilitaire.capitalize(fields.get(i).getName()), fields.get(i).getType());
+                getAndSetResult(objRetTemp, rs, m, colonne, fields.get(i).getType().getName());
+
+            }
+            o.add(objRetTemp);
+        }
+    }
+
+    public static int countCharacter(char c, String str) {
+        char[] a = str.toCharArray();
+        int count = 0;
+        for (int i = 0; i < a.length; i++) {
+            if (a[i] == c) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Pour Verifier si l'Annotation de entite a été bien spécifié
+     *
+     * @param instance
+     * @throws Exception
+     */
+    public static void verifyTable(Class instance, String nomTable) throws Exception {
+        try {
+            if (instance.getAnnotation(Entity.class) == null) {
+                throw new Exception("Aucune Annotation de Entite Spécifié !");
+            }
+            if (nomTable == null) {
+                throw new Exception("Aucune table Spécifié !");
+            }
+        } catch (Exception e) {
+            throw e;
+        }
+    }
+
+    /**
+     * Pour le 'set" des arguments dans le PreparedStatement
+     *
+     * @param ps
+     * @param nomtypefield
+     * @param nbcolonne
+     * @param g
+     * @throws Exception
+     */
+    public static void setPreparedStatement(PreparedStatement ps, String nomtypefield, int nbcolonne, Object g) throws Exception {
+        switch (nomtypefield) {
+            case "java.lang.Double":
+            case "double":
+                ps.setDouble(nbcolonne, (Double) g);
+                break;
+            case "boolean":
+                ps.setBoolean(nbcolonne, (boolean) g);
+                break;
+            case "int":
+            case "java.lang.Integer":
+                ps.setInt(nbcolonne, (int) g);
+                break;
+            case "org.postgresql.util.PGInterval":
+                ps.setObject(nbcolonne, (PGInterval) g);
+                break;
+            case "java.lang.String":
+                ps.setString(nbcolonne, (String) g);
+                break;
+            case "java.sql.Date":
+            case "java.util.Date":
+                if (g == null) {
+                    ps.setDate(nbcolonne, null);
+                } else {
+                    ps.setDate(nbcolonne, Date.valueOf(g.toString()));
+                }
+                break;
+            case "float":
+                ps.setFloat(nbcolonne, (float) g);
+                break;
+            case "java.sql.Timestamp":
+                ps.setTimestamp(nbcolonne, Timestamp.valueOf(g.toString()));
+                break;
+            case "java.sql.Time":
+                ps.setTime(nbcolonne, Time.valueOf(g.toString()));
+                break;
+            default:
+                ps.setObject(nbcolonne, g);
+                break;
+        }
+    }
+
+    /**
+     * Pour Executer la requête dans le Statement
+     *
+     * @param ps
+     * @param condition
+     * @param tableName
+     * @param instance
+     * @return
+     * @throws Exception
+     */
+    public static ResultSet executeStatementSelect(PreparedStatement ps, String condition, String tableName, Class instance) throws Exception {
+        try {
+            return ps.executeQuery();
+        } catch (SQLException e) {
+//            mbola jerena hoe ahoana no hi specifiena anle exception, avoka any ftsn aloha atreto
+            if (condition == null) {
+                String error = String.format("Le nom de table '%s', spécifié dans la Classe %s n'existe pas !", tableName, instance.getName());
+//                throw new Exception(error);
+            } else {
+                String error = String.format("Veuillez vérifier la condition '%s' entrée et/ou le nom de table '%s', spécifié dans la Classe %s",
+                        condition, tableName, instance.getName());
+//                throw new Exception(error);
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Pour récuperer tous les Fields de la classe , y compris ceux de sa classe
+     * mère etc
+     *
+     * @param instance
+     * @return
+     * @throws Exception
+     */
+    public static List<Field> getAllField(Class instance) throws Exception {
+        Class superClasse;
+        List<Field> field = new ArrayList();
+        superClasse = instance;
+        int nbannot = 0;
+        while (!superClasse.getName().equals("java.lang.Object")) {
+            Field[] attribut = superClasse.getDeclaredFields();
+            for (Field attribut1 : attribut) {
+                if (attribut1.getAnnotation(Column.class) != null) {
+                    //ze manana annotation colone ihany no alaina, tsy maka anle tableau ohatra
+                    field.add(attribut1);
+                    nbannot++;
+                }
+            }
+            superClasse = superClasse.getSuperclass();
+        }
+        if (nbannot == 0) {
+            throw new Exception("Aucune Annotation d'Attributs Spécifiés !");
+        }
+        return field;
+    }
+
+    /**
+     * Pour recuperer et Ajouter dans l'Objet obj le resultat obtenu
+     *
+     * @param obj
+     * @param rs
+     * @param m
+     * @param colonne
+     * @param nomtypefield
+     * @throws Exception
+     */
+    public static void getAndSetResult(Object obj, ResultSet rs, Method m, String colonne, String nomtypefield) throws Exception {
+        switch (nomtypefield) {
+            case "java.lang.String":
+                m.invoke(obj, rs.getString(colonne));
+                break;
+            case "java.lang.Double":
+            case "double":
+                m.invoke(obj, rs.getDouble(colonne));
+                break;
+            case "int":
+            case "java.lang.Integer":
+                m.invoke(obj, rs.getInt(colonne));
+                break;
+            case "org.postgresql.util.PGInterval":
+                m.invoke(obj, (PGInterval) rs.getObject(colonne));
+                break;
+            case "java.sql.Date":
+            case "java.util.Date":
+                m.invoke(obj, rs.getDate(colonne));
+                break;
+            case "boolean":
+                m.invoke(obj, rs.getBoolean(colonne));
+                break;
+            case "float":
+                m.invoke(obj, rs.getFloat(colonne));
+                break;
+            case "java.sql.Timestamp":
+                m.invoke(obj, rs.getTimestamp(colonne));
+                break;
+            case "java.sql.Time":
+                m.invoke(obj, rs.getTime(colonne));
+                break;
+            default:
+                m.invoke(obj, rs.getObject(colonne));
+                break;
+        }
+    }
+
     //mime types
 //    [
 //    'html' => ['text/html', '*/*'],
@@ -356,5 +624,4 @@ public class Utilitaire {
 //    'pkpass' => 'application/vnd.apple.pkpass',
 //    'ajax' => 'text/html'
 //]
-
 }

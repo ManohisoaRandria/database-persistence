@@ -606,9 +606,9 @@ public class GenericRepo {
             throw new Exception("Aucune Annotation Column Spécifiés !");
         }
         fields.clear();
-        for (Field newfield : newfields) {
+        newfields.forEach(newfield -> {
             fields.add(newfield);
-        }
+        });
 
     }
 
@@ -787,7 +787,7 @@ public class GenericRepo {
             Field[] attribut = superClasse.getDeclaredFields();
             for (Field attribut1 : attribut) {
                 if (attribut1.getAnnotation(Column.class) != null) {
-                    //ze manana annotation collone ihany no alaina, tsy maka anle tableau ohatra
+                    //ze manana annotation colone ihany no alaina, tsy maka anle tableau ohatra
                     if (meta == null) {
                         field.add(attribut1);
                     } else {

@@ -150,6 +150,22 @@ public class Utilitaire {
         }
     }
 
+    public static int countAll(String requette, Connection c) throws Exception {
+        int seq = 0;
+        String requete = " SELECT count(*) as nb from (" + requette + ")";
+
+        ResultSet rs2;
+        try (Statement st2 = c.createStatement()) {
+            rs2 = st2.executeQuery(requete);
+            while (rs2.next()) {
+                seq = rs2.getInt("nb");
+                break;
+            }
+        }
+        rs2.close();
+        return seq;
+    }
+
     public static <E> int setPreparedStatementValue(List<Field> fields, E critere, Class instance, PreparedStatement ps, Object... rawSqlValues) throws Exception {
         Method m;
         int last = 1;

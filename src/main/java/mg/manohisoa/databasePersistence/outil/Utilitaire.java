@@ -1,6 +1,7 @@
 package mg.manohisoa.databasePersistence.outil;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import mg.manohisoa.databasePersistence.annotation.Column;
 import mg.manohisoa.databasePersistence.annotation.Entity;
+import mg.manohisoa.databasePersistence.exception.DatabasePersistenceException;
 import org.postgresql.util.PGInterval;
 
 public class Utilitaire {
@@ -53,7 +55,7 @@ public class Utilitaire {
         return arg;
     }
 
-    public static String getNextVal(String nomSequence, Connection c) throws Exception {
+    public static String getNextVal(String nomSequence, Connection c) throws SQLException {
         String seq = null;
         String requete = " SELECT " + nomSequence + ".nextval as nb from Dual";
         ResultSet rs2;
@@ -80,9 +82,9 @@ public class Utilitaire {
         return result;
     }
 
-    public static String formatNumber(String seqValue, int ordre) throws Exception {
+    public static String formatNumber(String seqValue, int ordre) {
         if (seqValue.split("").length > ordre) {
-            throw new Exception("Format impossible !");
+            throw new DatabasePersistenceException("Format impossible !");
         }
         String ret = "";
         for (int i = 0; i < ordre - seqValue.split("").length; i++) {
@@ -91,7 +93,7 @@ public class Utilitaire {
         return ret + seqValue;
     }
 
-    public static String getIdFromSequence(String sequence, Connection con, int length) throws Exception {
+    public static String getIdFromSequence(String sequence, Connection con, int length) throws SQLException {
         return formatNumber(getNextVal(sequence, con), length);
     }
 
@@ -138,7 +140,7 @@ public class Utilitaire {
         return ret;
     }
 
-    public static boolean checkEmail(String email) throws Exception {
+    public static boolean checkEmail(String email) {
         return email.matches(REGEX_EMAIL);
     }
 
@@ -150,7 +152,7 @@ public class Utilitaire {
         }
     }
 
-    public static int countAll(String requette, Connection c) throws Exception {
+    public static int countAll(String requette, Connection c) throws SQLException {
         int seq = 0;
         String requete = " SELECT count(*) as nb from (" + requette + ")";
 
@@ -166,7 +168,12 @@ public class Utilitaire {
         return seq;
     }
 
-    public static <E> int setPreparedStatementValue(List<Field> fields, E critere, Class instance, PreparedStatement ps, Object... rawSqlValues) throws Exception {
+    public static <E> int setPreparedStatementValue(List<Field> fields, E critere, Class instance, PreparedStatement ps, Object... rawSqlValues)
+            throws NoSuchMethodException,
+            IllegalAccessException,
+            IllegalArgumentException,
+            InvocationTargetException,
+            SQLException {
         Method m;
         int last = 1;
         for (int i = 0; i < fields.size(); i++) {
@@ -202,17 +209,18 @@ public class Utilitaire {
         return (Column) field.getAnnotation(Column.class);
     }
 
-    public static void verifyRawSqlCount(String rawSql, Object... rawSqlValues) throws Exception {
+    public static void verifyRawSqlCount(String rawSql, Object... rawSqlValues) {
         if (rawSql != null) {
             int countRawParameters = countCharacter('?', rawSql);
             if (rawSqlValues.length != countRawParameters) {
-                throw new Exception("Le nombre de ? dans <rawSql> doit etre identique au nombre de parametres dans <rawSqlValue>.");
+                throw new DatabasePersistenceException("Le nombre de ? dans <rawSql> doit etre identique au nombre de parametres dans <rawSqlValue>.");
             }
         }
 
     }
 
-    public static <E> void getResultAsList(ResultSet rs, List<Field> fields, List<E> o, Class instance) throws Exception {
+    public static <E> void getResultAsList(ResultSet rs, List<Field> fields, List<E> o, Class instance) throws SQLException,
+            NoSuchMethodException, InstantiationException, IllegalAccessException, IllegalArgumentException, InvocationTargetException {
         E objRetTemp;
         Column annot;
 
@@ -246,19 +254,17 @@ public class Utilitaire {
      * Pour Verifier si l'Annotation de entite a été bien spécifié
      *
      * @param instance
-     * @throws Exception
+     * @param nomTable
      */
-    public static void verifyTable(Class instance, String nomTable) throws Exception {
-        try {
-            if (instance.getAnnotation(Entity.class) == null) {
-                throw new Exception("Aucune Annotation de Entite Spécifié !");
-            }
-            if (nomTable == null) {
-                throw new Exception("Aucune table Spécifié !");
-            }
-        } catch (Exception e) {
-            throw e;
+    public static void verifyTable(Class instance, String nomTable) {
+
+        if (instance.getAnnotation(Entity.class) == null) {
+            throw new DatabasePersistenceException("Aucune Annotation de Entite Spécifié !");
         }
+        if (nomTable == null) {
+            throw new DatabasePersistenceException("Aucune table Spécifié !");
+        }
+
     }
 
     /**
@@ -268,9 +274,9 @@ public class Utilitaire {
      * @param nomtypefield
      * @param nbcolonne
      * @param g
-     * @throws Exception
+     * @throws java.sql.SQLException
      */
-    public static void setPreparedStatement(PreparedStatement ps, String nomtypefield, int nbcolonne, Object g) throws Exception {
+    public static void setPreparedStatement(PreparedStatement ps, String nomtypefield, int nbcolonne, Object g) throws SQLException {
         switch (nomtypefield) {
             case "java.lang.Double":
             case "double":
@@ -320,9 +326,9 @@ public class Utilitaire {
      * @param tableName
      * @param instance
      * @return
-     * @throws Exception
+     * @throws java.sql.SQLException
      */
-    public static ResultSet executeStatementSelect(PreparedStatement ps, String condition, String tableName, Class instance) throws Exception {
+    public static ResultSet executeStatementSelect(PreparedStatement ps, String condition, String tableName, Class instance) throws SQLException {
         try {
             return ps.executeQuery();
         } catch (SQLException e) {
@@ -345,9 +351,8 @@ public class Utilitaire {
      *
      * @param instance
      * @return
-     * @throws Exception
      */
-    public static List<Field> getAllField(Class instance) throws Exception {
+    public static List<Field> getAllField(Class instance) {
         Class superClasse;
         List<Field> field = new ArrayList();
         superClasse = instance;
@@ -364,7 +369,7 @@ public class Utilitaire {
             superClasse = superClasse.getSuperclass();
         }
         if (nbannot == 0) {
-            throw new Exception("Aucune Annotation d'Attributs Spécifiés !");
+            throw new DatabasePersistenceException("Aucune Annotation d'Attributs Spécifiés !");
         }
         return field;
     }
@@ -377,9 +382,14 @@ public class Utilitaire {
      * @param m
      * @param colonne
      * @param nomtypefield
-     * @throws Exception
+     * @throws java.sql.SQLException
+     * @throws java.lang.IllegalAccessException
+     * @throws java.lang.reflect.InvocationTargetException
      */
-    public static void getAndSetResult(Object obj, ResultSet rs, Method m, String colonne, String nomtypefield) throws Exception {
+    public static void getAndSetResult(Object obj, ResultSet rs, Method m, String colonne, String nomtypefield) throws SQLException,
+            IllegalAccessException,
+            IllegalArgumentException,
+            InvocationTargetException {
         switch (nomtypefield) {
             case "java.lang.String":
                 m.invoke(obj, rs.getString(colonne));

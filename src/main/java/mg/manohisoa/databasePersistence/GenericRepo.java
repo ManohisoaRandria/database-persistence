@@ -1,6 +1,7 @@
 package mg.manohisoa.databasePersistence;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -12,6 +13,7 @@ import java.util.List;
 import mg.manohisoa.databasePersistence.annotation.Cacheable;
 import mg.manohisoa.databasePersistence.annotation.Column;
 import mg.manohisoa.databasePersistence.cache.Cache;
+import mg.manohisoa.databasePersistence.exception.DatabasePersistenceException;
 import mg.manohisoa.databasePersistence.outil.Utilitaire;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -159,9 +161,8 @@ public class GenericRepo {
      * @param requete
      * @param result
      * @param mindureecache
-     * @throws Exception
      */
-    private <E> void addToCache(String tableName, String requete, List<E> result) throws Exception {
+    private <E> void addToCache(String tableName, String requete, List<E> result) {
         tableName = tableName.trim().toLowerCase();
         if (!(result == null || result.isEmpty())) {
             if (checkKeyCache(CACHE, tableName)) {
@@ -176,8 +177,9 @@ public class GenericRepo {
 
     /**
      * Select avec prise en charge de l'Héritage ,Annotation .Ne Marche pas si
-     * l'instance entrée ne respecte pas les normes d'annotation configurés Le
-     * cache est a revoir
+     * l'instance entrée ne respecte pas les normes d'annotation configurés.Le
+     * tableName est obligatoire le critère est aussi obligatoire et ne peut pas
+     * être null rawSql est facultatif
      *
      * @param <E>
      * @param tableName
@@ -185,16 +187,18 @@ public class GenericRepo {
      * @param con
      * @param rawSql
      * @param rawSqlValues
-     * @return 
-     * @throws Exception
+     * @return
      */
-    public <E> List<E> find(String tableName, E critere, String rawSql, Connection con, Object... rawSqlValues) throws Exception {
+    public <E> List<E> find(String tableName, E critere, String rawSql, Connection con, Object... rawSqlValues) {
         List<E> result = null;
 
         ResultSet rs = null;
         PreparedStatement ps = null;
 
         try {
+            if (critere == null) {
+                throw new DatabasePersistenceException("L'objet critère est null, veuillez l'initialiser !");
+            }
             Class instance = critere.getClass();
             Utilitaire.verifyTable(instance, tableName);
             Utilitaire.verifyRawSqlCount(rawSql, rawSqlValues);
@@ -203,14 +207,17 @@ public class GenericRepo {
             List<Field> fields = Utilitaire.getAllField(instance);
             removeNullFields(fields, critere);
             sql += Utilitaire.buildRequestBasedOnField(fields);
-            if (rawSql != null && !rawSql.equals("")) {
+            if (rawSql != null && !rawSql.trim().equals("")) {
+                if (!rawSql.trim().toUpperCase().startsWith("AND ")) {
+                    rawSql = " AND " + rawSql;
+                }
                 sql += rawSql;
             }
 
             int last = Utilitaire.setPreparedStatementValue(fields, critere, instance, ps, rawSqlValues) + 1;
             if (this.paginate) {
-                if (sql.toUpperCase().contains("ORDER")) {
-                    throw new Exception("La requête doit comporter une condition de tri (ORDER BY) pour une pagination correcte");
+                if (!sql.toUpperCase().contains("ORDER")) {
+                    throw new DatabasePersistenceException("La requête doit comporter une condition de tri (ORDER BY) pour une pagination correcte");
                 }
 
                 StringBuilder paginationRequest = new StringBuilder("SELECT * FROM ( SELECT a.*, ROWNUM R__ FROM (");
@@ -250,16 +257,27 @@ public class GenericRepo {
                     addToCache(tableName, identifier, result);
                 }
             }
-        } catch (Exception ex) {
-            throw ex;
+        } catch (IllegalAccessException
+                | NoSuchMethodException
+                | InvocationTargetException
+                | SQLException | InstantiationException ex) {
+            throw new DatabasePersistenceException(ex.toString());
         } finally {
             this.setPaginate(false);
             this.identifierCache = null;
             if (rs != null) {
-                rs.close();
+                try {
+                    rs.close();
+                } catch (SQLException ex) {
+                    throw new DatabasePersistenceException(ex.toString());
+                }
             }
             if (ps != null) {
-                ps.close();
+                try {
+                    ps.close();
+                } catch (SQLException ex) {
+                    throw new DatabasePersistenceException(ex.toString());
+                }
             }
         }
         return result;
@@ -272,9 +290,8 @@ public class GenericRepo {
      * @param obj
      * @param tableName
      * @param con
-     * @throws Exception
      */
-    public void insert(Object obj, String tableName, Connection con) throws Exception {
+    public void insert(Object obj, String tableName, Connection con) {
         String requete, colonne;
         Column annot;
         PreparedStatement ps = null;
@@ -313,27 +330,34 @@ public class GenericRepo {
             ps.executeUpdate();
 
             removeFromCache(tableName);
-        } catch (Exception e) {
-            throw e;
+        } catch (IllegalAccessException
+                | NoSuchMethodException
+                | SecurityException
+                | InvocationTargetException
+                | SQLException ex) {
+            throw new DatabasePersistenceException(ex.toString());
         } finally {
             if (ps != null) {
-                ps.close();
+                try {
+                    ps.close();
+                } catch (SQLException ex) {
+                    throw new DatabasePersistenceException(ex.toString());
+                }
             }
         }
     }
 
     /**
-     * update sans prendre en compte le primary key comme condition. la
-     * condition doit etre faite a la main
+     * update sans prendre en compte le primary key comme condition.la condition
+     * doit etre faite a la main
      *
      * @param obj
      * @param tableName
      * @param afterWhere
      * @param con
      * @param afterWhereValues
-     * @throws Exception
      */
-    public void update(Object obj, String tableName, Connection con, String afterWhere, Object... afterWhereValues) throws Exception {
+    public void update(Object obj, String tableName, Connection con, String afterWhere, Object... afterWhereValues) {
         PreparedStatement ps = null;
         Method m;
         Column annot;
@@ -377,11 +401,18 @@ public class GenericRepo {
             }
             ps.executeUpdate();
             removeFromCache(tableName);
-        } catch (Exception ex) {
-            throw ex;
+        } catch (IllegalAccessException
+                | NoSuchMethodException
+                | InvocationTargetException
+                | SQLException ex) {
+            throw new DatabasePersistenceException(ex.toString());
         } finally {
             if (ps != null) {
-                ps.close();
+                try {
+                    ps.close();
+                } catch (SQLException ex) {
+                    throw new DatabasePersistenceException(ex.toString());
+                }
             }
         }
     }
@@ -393,9 +424,8 @@ public class GenericRepo {
      * @param con
      * @param rawCondition
      * @param rawConditionValues
-     * @throws Exception
      */
-    public void delete(String nomtable, Connection con, String rawCondition, Object... rawConditionValues) throws Exception {
+    public void delete(String nomtable, Connection con, String rawCondition, Object... rawConditionValues) {
         PreparedStatement ps = null;
         String sql;
         try {
@@ -414,10 +444,14 @@ public class GenericRepo {
             ps.executeUpdate();
             removeFromCache(nomtable);
         } catch (SQLException ex) {
-            throw ex;
+            throw new DatabasePersistenceException(ex.toString());
         } finally {
             if (ps != null) {
-                ps.close();
+                try {
+                    ps.close();
+                } catch (SQLException ex) {
+                    throw new DatabasePersistenceException(ex.toString());
+                }
             }
         }
     }
@@ -429,9 +463,8 @@ public class GenericRepo {
      * @param obj
      * @param nomtable
      * @param con
-     * @throws Exception
      */
-    public void delete(Object obj, String nomtable, Connection con) throws Exception {
+    public void delete(Object obj, String nomtable, Connection con) {
         PreparedStatement ps = null;
         String sql;
         Column annot;
@@ -460,18 +493,28 @@ public class GenericRepo {
             }
             ps.executeUpdate();
             removeFromCache(nomtable);
-        } catch (Exception ex) {
-            con.rollback();
-            throw ex;
+        } catch (SQLException
+                | NoSuchMethodException
+                | IllegalAccessException
+                | InvocationTargetException ex) {
+            try {
+                con.rollback();
+            } catch (SQLException ex1) {
+                throw new DatabasePersistenceException(ex.toString());
+            }
+            throw new DatabasePersistenceException(ex.toString());
         } finally {
             if (ps != null) {
-                ps.close();
+                try {
+                    ps.close();
+                } catch (SQLException ex) {
+                    throw new DatabasePersistenceException(ex.toString());
+                }
             }
         }
     }
 
-    private boolean fieldValueIsNull(String fieldType, Object data)
-            throws IllegalArgumentException, IllegalAccessException {
+    private boolean fieldValueIsNull(String fieldType, Object data) {
 
         switch (fieldType) {
             case "int":
@@ -485,39 +528,38 @@ public class GenericRepo {
         }
     }
 
-    private void removeNullFields(List<Field> fields, Object obj)
-            throws Exception {
-
-        Class instance = obj.getClass();
-        Method m;
-        boolean noColumnAnnotation = true;
-        List<Field> newfields = new ArrayList<>();
-        Object temp;
-        for (int i = 0; i < fields.size(); i++) {
-            m = instance.getMethod("get" + Utilitaire.capitalize(fields.get(i).getName()), new Class[0]);
-            temp = m.invoke(obj, new Object[0]);
-            if (!fieldValueIsNull(fields.get(i).getType().getName(), temp) && Utilitaire.fieldHasColumnAnnotation(fields.get(i))) {
-                newfields.add(fields.get(i));
+    private void removeNullFields(List<Field> fields, Object obj) {
+        try {
+            Class instance = obj.getClass();
+            Method m;
+            boolean noColumnAnnotation = true;
+            List<Field> newfields = new ArrayList<>();
+            Object temp;
+            for (int i = 0; i < fields.size(); i++) {
+                m = instance.getMethod("get" + Utilitaire.capitalize(fields.get(i).getName()), new Class[0]);
+                temp = m.invoke(obj, new Object[0]);
+                if (!fieldValueIsNull(fields.get(i).getType().getName(), temp) && Utilitaire.fieldHasColumnAnnotation(fields.get(i))) {
+                    newfields.add(fields.get(i));
+                }
+                if (Utilitaire.fieldHasColumnAnnotation(fields.get(i))) {
+                    noColumnAnnotation = false;
+                }
             }
-            if (Utilitaire.fieldHasColumnAnnotation(fields.get(i))) {
-                noColumnAnnotation = false;
+            if (noColumnAnnotation == true) {
+                throw new DatabasePersistenceException("Aucune Annotation Column Spécifiés !");
             }
+            fields.clear();
+            newfields.forEach(newfield -> {
+                fields.add(newfield);
+            });
+        } catch (NoSuchMethodException
+                | IllegalAccessException
+                | IllegalArgumentException
+                | InvocationTargetException ex) {
+            throw new DatabasePersistenceException(ex.toString());
         }
-        if (noColumnAnnotation == true) {
-            throw new Exception("Aucune Annotation Column Spécifiés !");
-        }
-        fields.clear();
-        newfields.forEach(newfield -> {
-            fields.add(newfield);
-        });
-
     }
 
-    /**
-     * metre en majuscule la première lettre de arg
-     *
-     * @return
-     */
     public int getIgnoreIntMin() {
         return ignoreIntMin;
     }

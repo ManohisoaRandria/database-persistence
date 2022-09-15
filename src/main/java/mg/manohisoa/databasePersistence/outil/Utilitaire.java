@@ -55,18 +55,18 @@ public class Utilitaire {
         return arg;
     }
 
-    public static String getNextVal(String nomSequence, Connection c) throws SQLException {
+    public static String getNextVal(String nomSequence, Connection c) {
         String seq = null;
         String requete = " SELECT " + nomSequence + ".nextval as nb from Dual";
-        ResultSet rs2;
-        try (Statement st2 = c.createStatement()) {
-            rs2 = st2.executeQuery(requete);
+
+        try (Statement st2 = c.createStatement(); ResultSet rs2 = st2.executeQuery(requete)) {
             while (rs2.next()) {
                 seq = rs2.getString("nb");
                 break;
             }
+        } catch (SQLException ex) {
+            throw new DatabasePersistenceException(ex.toString());
         }
-        rs2.close();
         return seq;
     }
 
@@ -93,7 +93,7 @@ public class Utilitaire {
         return ret + seqValue;
     }
 
-    public static String getIdFromSequence(String sequence, Connection con, int length) throws SQLException {
+    public static String getIdFromSequence(String sequence, Connection con, int length) {
         return formatNumber(getNextVal(sequence, con), length);
     }
 
@@ -152,19 +152,18 @@ public class Utilitaire {
         }
     }
 
-    public static int countAll(String requette, Connection c) throws SQLException {
+    public static int countAll(String requette, Connection c) {
         int seq = 0;
         String requete = " SELECT count(*) as nb from (" + requette + ")";
 
-        ResultSet rs2;
-        try (Statement st2 = c.createStatement()) {
-            rs2 = st2.executeQuery(requete);
+        try (Statement st2 = c.createStatement(); ResultSet rs2 = st2.executeQuery(requete)) {
             while (rs2.next()) {
                 seq = rs2.getInt("nb");
                 break;
             }
+        } catch (SQLException ex) {
+            throw new DatabasePersistenceException(ex.toString());
         }
-        rs2.close();
         return seq;
     }
 

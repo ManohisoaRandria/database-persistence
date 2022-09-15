@@ -29,14 +29,24 @@ public class GenericRepo {
      */
     private static final HashMap<String, HashMap<String, Cache>> CACHE = new HashMap<>();
 
+    /**
+     * Those ignore fields is used in case we don't want a field of primitive
+     * type in an object to no be included in the request to the database
+     */
     private int ignoreIntMin;
     private double ignoreDoubleMin;
     private float ignoreFloatMin;
+    /**
+     * these are used to paginate result
+     */
     private boolean paginate;
     private int pageNum;
     private int pageSize;
 
-    //default is null, if null then the request itself is cached
+    /**
+     * Default is null, if null then the request itself is cached, else the
+     * request is identified by this identifier
+     */
     private String identifierCache;
 
     public GenericRepo() {
@@ -179,7 +189,8 @@ public class GenericRepo {
      * Select avec prise en charge de l'Héritage ,Annotation .Ne Marche pas si
      * l'instance entrée ne respecte pas les normes d'annotation configurés.Le
      * tableName est obligatoire le critère est aussi obligatoire et ne peut pas
-     * être null rawSql est facultatif
+     * être null rawSql est facultatif;
+     *
      *
      * @param <E>
      * @param tableName

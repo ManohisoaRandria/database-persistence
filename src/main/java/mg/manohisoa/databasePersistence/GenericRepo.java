@@ -14,6 +14,7 @@ import mg.manohisoa.databasePersistence.annotation.Cacheable;
 import mg.manohisoa.databasePersistence.annotation.Column;
 import mg.manohisoa.databasePersistence.cache.Cache;
 import mg.manohisoa.databasePersistence.exception.DatabasePersistenceException;
+import mg.manohisoa.databasePersistence.exception.OtherReflectAndSqlException;
 import mg.manohisoa.databasePersistence.outil.Utilitaire;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -272,7 +273,7 @@ public class GenericRepo {
                 | NoSuchMethodException
                 | InvocationTargetException
                 | SQLException | InstantiationException ex) {
-            throw new DatabasePersistenceException(ex.toString());
+            throw new OtherReflectAndSqlException(ex.toString());
         } finally {
             this.setPaginate(false);
             this.identifierCache = null;
@@ -280,14 +281,14 @@ public class GenericRepo {
                 try {
                     rs.close();
                 } catch (SQLException ex) {
-                    throw new DatabasePersistenceException(ex.toString());
+                    throw new OtherReflectAndSqlException(ex.toString());
                 }
             }
             if (ps != null) {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new DatabasePersistenceException(ex.toString());
+                    throw new OtherReflectAndSqlException(ex.toString());
                 }
             }
         }
@@ -346,13 +347,13 @@ public class GenericRepo {
                 | SecurityException
                 | InvocationTargetException
                 | SQLException ex) {
-            throw new DatabasePersistenceException(ex.toString());
+            throw new OtherReflectAndSqlException(ex.toString());
         } finally {
             if (ps != null) {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new DatabasePersistenceException(ex.toString());
+                    throw new OtherReflectAndSqlException(ex.toString());
                 }
             }
         }
@@ -416,13 +417,13 @@ public class GenericRepo {
                 | NoSuchMethodException
                 | InvocationTargetException
                 | SQLException ex) {
-            throw new DatabasePersistenceException(ex.toString());
+            throw new OtherReflectAndSqlException(ex.toString());
         } finally {
             if (ps != null) {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new DatabasePersistenceException(ex.toString());
+                    throw new OtherReflectAndSqlException(ex.toString());
                 }
             }
         }
@@ -455,13 +456,13 @@ public class GenericRepo {
             ps.executeUpdate();
             removeFromCache(nomtable);
         } catch (SQLException ex) {
-            throw new DatabasePersistenceException(ex.toString());
+            throw new OtherReflectAndSqlException(ex.toString());
         } finally {
             if (ps != null) {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new DatabasePersistenceException(ex.toString());
+                    throw new OtherReflectAndSqlException(ex.toString());
                 }
             }
         }
@@ -511,15 +512,15 @@ public class GenericRepo {
             try {
                 con.rollback();
             } catch (SQLException ex1) {
-                throw new DatabasePersistenceException(ex.toString());
+                throw new OtherReflectAndSqlException(ex.toString());
             }
-            throw new DatabasePersistenceException(ex.toString());
+            throw new OtherReflectAndSqlException(ex.toString());
         } finally {
             if (ps != null) {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new DatabasePersistenceException(ex.toString());
+                    throw new OtherReflectAndSqlException(ex.toString());
                 }
             }
         }
@@ -567,7 +568,7 @@ public class GenericRepo {
                 | IllegalAccessException
                 | IllegalArgumentException
                 | InvocationTargetException ex) {
-            throw new DatabasePersistenceException(ex.toString());
+            throw new OtherReflectAndSqlException(ex.toString());
         }
     }
 

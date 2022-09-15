@@ -20,6 +20,7 @@ import java.util.List;
 import mg.manohisoa.databasePersistence.annotation.Column;
 import mg.manohisoa.databasePersistence.annotation.Entity;
 import mg.manohisoa.databasePersistence.exception.DatabasePersistenceException;
+import mg.manohisoa.databasePersistence.exception.OtherReflectAndSqlException;
 import org.postgresql.util.PGInterval;
 
 public class Utilitaire {
@@ -65,7 +66,7 @@ public class Utilitaire {
                 break;
             }
         } catch (SQLException ex) {
-            throw new DatabasePersistenceException(ex.toString());
+            throw new OtherReflectAndSqlException(ex.toString());
         }
         return seq;
     }
@@ -162,7 +163,7 @@ public class Utilitaire {
                 break;
             }
         } catch (SQLException ex) {
-            throw new DatabasePersistenceException(ex.toString());
+            throw new OtherReflectAndSqlException(ex.toString());
         }
         return seq;
     }

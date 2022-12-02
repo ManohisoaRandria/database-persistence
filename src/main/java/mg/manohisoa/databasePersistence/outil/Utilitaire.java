@@ -49,10 +49,6 @@ public class Utilitaire {
         return arg;
     }
 
-    public static String getIdFromSequence(String sequence, Connection con, int length) throws Exception {
-        return formatNumber(getNextVal(sequence, con), length);
-    }
-
     public static String getNextVal(String nomSequence, Connection c) throws Exception {
         String seq = null;
         String requete = " SELECT " + nomSequence + ".nextval as nb from Dual";
@@ -68,15 +64,19 @@ public class Utilitaire {
         return seq;
     }
 
-    public static String formatNumber(String seq, int ordre) throws Exception {
-        if (seq.split("").length > ordre) {
+    public static String formatNumber(String seqValue, int ordre) throws Exception {
+        if (seqValue.split("").length > ordre) {
             throw new Exception("Format impossible !");
         }
         String ret = "";
-        for (int i = 0; i < ordre - seq.split("").length; i++) {
+        for (int i = 0; i < ordre - seqValue.split("").length; i++) {
             ret += "0";
         }
-        return ret + seq;
+        return ret + seqValue;
+    }
+
+    public static String getIdFromSequence(String sequence, Connection con, int length) throws Exception {
+        return formatNumber(getNextVal(sequence, con), length);
     }
 
     public static String getSecurePassword(String passwordToHash) throws NoSuchAlgorithmException {

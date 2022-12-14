@@ -19,7 +19,7 @@ import mg.manohisoa.databasePersistence.outil.Utilitaire;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class GenericRepo {
+public final class GenericRepo {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GenericRepo.class);
 
@@ -50,11 +50,16 @@ public class GenericRepo {
      */
     private String identifierCache;
 
+    /**
+     * if this is true, operations insert/select/update/delete will reset
+     * automaticaly all the fields above; it is false by default so user of this
+     * framework should reset manually if needed
+     */
+    private boolean autoResetParams;
+
     public GenericRepo() {
-        this.ignoreIntMin = 1;
-        this.ignoreDoubleMin = 1;
-        this.ignoreFloatMin = 1;
-        this.paginate = false;
+        this.setAutoResetParams(false);
+        this.resetAllParams();
     }
 
     /**
@@ -274,8 +279,10 @@ public class GenericRepo {
                 | SQLException | InstantiationException ex) {
             throw new OtherReflectAndSqlException(ex.toString());
         } finally {
-            this.setPaginate(false);
-            this.identifierCache = null;
+            this.setIdentifierCache(null);
+            if (this.autoResetParams) {
+                this.resetAllParams();
+            }
             if (rs != null) {
                 try {
                     rs.close();
@@ -356,6 +363,9 @@ public class GenericRepo {
                 | SQLException ex) {
             throw new OtherReflectAndSqlException(ex.toString());
         } finally {
+            if (this.autoResetParams) {
+                this.resetAllParams();
+            }
             if (ps != null) {
                 try {
                     ps.close();
@@ -429,6 +439,9 @@ public class GenericRepo {
                 | SQLException ex) {
             throw new OtherReflectAndSqlException(ex.toString());
         } finally {
+            if (this.autoResetParams) {
+                this.resetAllParams();
+            }
             if (ps != null) {
                 try {
                     ps.close();
@@ -468,6 +481,9 @@ public class GenericRepo {
         } catch (SQLException ex) {
             throw new OtherReflectAndSqlException(ex.toString());
         } finally {
+            if (this.autoResetParams) {
+                this.resetAllParams();
+            }
             if (ps != null) {
                 try {
                     ps.close();
@@ -529,6 +545,9 @@ public class GenericRepo {
             }
             throw new OtherReflectAndSqlException(ex.toString());
         } finally {
+            if (this.autoResetParams) {
+                this.resetAllParams();
+            }
             if (ps != null) {
                 try {
                     ps.close();
@@ -583,6 +602,21 @@ public class GenericRepo {
                 | InvocationTargetException ex) {
             throw new OtherReflectAndSqlException(ex.toString());
         }
+    }
+
+    public void resetAllParams() {
+        this.setPaginate(false);
+        this.setIgnoreDoubleMin(1);
+        this.setIgnoreFloatMin(1);
+        this.setIgnoreIntMin(1);
+    }
+
+    public boolean isAutoResetParams() {
+        return autoResetParams;
+    }
+
+    public void setAutoResetParams(boolean autoResetParams) {
+        this.autoResetParams = autoResetParams;
     }
 
     public int getIgnoreIntMin() {

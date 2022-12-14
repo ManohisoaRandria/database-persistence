@@ -45,8 +45,8 @@ public class GenericRepo {
     private int pageSize;
 
     /**
-     * Default is null, if null then the request itself is cached, else the
-     * request is identified by this identifier
+     * Default is null, if null then the request itself is used as a cache key,
+     * else the request is identified by this identifier
      */
     private String identifierCache;
 
@@ -165,7 +165,7 @@ public class GenericRepo {
 
     /**
      * Add a request and its value in the cache with a duration limit. If the
-     * table name is already present, int simply overwrite the value, else it
+     * table name is already present, it simply overwrite the value, else it
      * create a new key value pair for the table and the request
      *
      * @param key
@@ -190,7 +190,7 @@ public class GenericRepo {
      * Select avec prise en charge de l'Héritage ,Annotation .Ne Marche pas si
      * l'instance entrée ne respecte pas les normes d'annotation configurés.Le
      * tableName est obligatoire le critère est aussi obligatoire et ne peut pas
-     * être null rawSql est facultatif;
+     * être null, rawSql est facultatif;
      *
      *
      * @param <E>
@@ -260,8 +260,7 @@ public class GenericRepo {
                 rs = Utilitaire.executeStatementSelect(ps, req, tableName, instance);
                 result = new ArrayList<>();
                 Utilitaire.getResultAsList(rs, fields, result, instance);
-                //set the response into the cache
-
+                //set the response into the cache if cacheable
                 if (cacheable != null) {
                     if (this.identifierCache != null) {
                         identifier = this.identifierCache;
@@ -307,6 +306,9 @@ public class GenericRepo {
         String requete, colonne;
         Column annot;
         PreparedStatement ps = null;
+        if (obj == null) {
+            throw new DatabasePersistenceException("L'objet à insérer est null, veuillez l'initialiser !");
+        }
         Class instance = obj.getClass();
         Method m;
         try {
@@ -327,21 +329,26 @@ public class GenericRepo {
                     values += ",?";
                 }
             }
-            requete += into;
-            requete += ") VALUES (";
-            requete += values;
-            requete += ")";
-            LOGGER.debug("SQL: {}", requete);
-            ps = con.prepareStatement(requete);
-            int nbcolonne = 1;
-            for (int i = 0; i < fields.size(); i++) {
-                m = instance.getMethod("get" + Utilitaire.capitalize(fields.get(i).getName()), new Class[0]);
-                Utilitaire.setPreparedStatement(ps, fields.get(i).getType().getName(), nbcolonne, m.invoke(obj, new Object[0]));
-                nbcolonne++;
-            }
-            ps.executeUpdate();
+            if (!into.trim().equals("")) {
+                requete += into;
+                requete += ") VALUES (";
+                requete += values;
+                requete += ")";
+                LOGGER.debug("SQL: {}", requete);
+                ps = con.prepareStatement(requete);
+                int nbcolonne = 1;
+                for (int i = 0; i < fields.size(); i++) {
+                    m = instance.getMethod("get" + Utilitaire.capitalize(fields.get(i).getName()), new Class[0]);
+                    Utilitaire.setPreparedStatement(ps, fields.get(i).getType().getName(), nbcolonne, m.invoke(obj, new Object[0]));
+                    nbcolonne++;
+                }
+                ps.executeUpdate();
 
-            removeFromCache(tableName);
+                removeFromCache(tableName);
+            } else {
+                throw new DatabasePersistenceException("Pas de données à insérer");
+            }
+
         } catch (IllegalAccessException
                 | NoSuchMethodException
                 | SecurityException
@@ -375,6 +382,9 @@ public class GenericRepo {
         Column annot;
         String colonne;
         try {
+            if (obj == null) {
+                throw new DatabasePersistenceException("L'objet à updater est null, veuillez l'initialiser !");
+            }
             Class instance = obj.getClass();
             Utilitaire.verifyTable(instance, tableName);
             Utilitaire.verifyRawSqlCount(afterWhere, afterWhereValues);
@@ -482,6 +492,9 @@ public class GenericRepo {
         Column annot;
         String colonne;
         Method m;
+        if (obj == null) {
+            throw new DatabasePersistenceException("L'objet à supprimer est null, veuillez l'initialiser !");
+        }
         Class instance = obj.getClass();
         try {
             Utilitaire.verifyTable(instance, nomtable);

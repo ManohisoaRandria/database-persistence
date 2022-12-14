@@ -237,10 +237,10 @@ public class GenericRepo {
                 paginationRequest.append(" ) a WHERE ROWNUM <= ? * ?)");
                 paginationRequest.append(" WHERE R__ >= (? - 1) * ? + 1");
                 ps = con.prepareStatement(paginationRequest.toString(), ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-                ps.setInt(pageNum, last);
-                ps.setInt(pageSize, last + 1);
-                ps.setInt(pageNum, last + 2);
-                ps.setInt(pageSize, last + 3);
+                ps.setInt(last, pageNum);
+                ps.setInt(last + 1, pageSize);
+                ps.setInt(last + 2, pageNum);
+                ps.setInt(last + 3, pageSize);
             } else {
                 ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
             }

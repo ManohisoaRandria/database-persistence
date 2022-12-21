@@ -710,10 +710,20 @@ public class GenericRepo {
                 break;
             case "java.sql.Date":
             case "java.util.Date":
+
                 if (g == null) {
                     ps.setDate(nbcolonne, null);
                 } else {
-                    ps.setDate(nbcolonne, Date.valueOf(g.toString()));
+                    String dt = g.toString();
+                    if (dt.contains("/")) {
+                        String[] sp = dt.split("/");
+                        String finalDate = sp[2] + "-" + sp[1] + "-" + sp[0];
+
+                        ps.setDate(nbcolonne, Date.valueOf(finalDate));
+                    } else {
+                        ps.setDate(nbcolonne, Date.valueOf(g.toString()));
+                    }
+
                 }
                 break;
             case "float":

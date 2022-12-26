@@ -208,7 +208,7 @@ public final class GenericRepo {
      * @throws
      * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public <E> List<E> find(String tableName, E critere, String rawSql, Connection con, Object... rawSqlValues) {
+    public <E> List<E> find(String tableName, E critere, String rawSql, Connection con, Object... rawSqlValues) throws DatabasePersistenceException {
         List<E> result = null;
 
         ResultSet rs = null;
@@ -310,8 +310,10 @@ public final class GenericRepo {
      * @param obj
      * @param tableName
      * @param con
+     * @throws
+     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public void insert(Object obj, String tableName, Connection con) {
+    public void insert(Object obj, String tableName, Connection con) throws DatabasePersistenceException {
         String requete, colonne;
         Column annot;
         PreparedStatement ps = null;
@@ -387,8 +389,10 @@ public final class GenericRepo {
      * @param afterWhere
      * @param con
      * @param afterWhereValues
+     * @throws
+     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public void update(Object obj, String tableName, Connection con, String afterWhere, Object... afterWhereValues) {
+    public void update(Object obj, String tableName, Connection con, String afterWhere, Object... afterWhereValues) throws DatabasePersistenceException {
         PreparedStatement ps = null;
         Method m;
         Column annot;
@@ -461,8 +465,10 @@ public final class GenericRepo {
      * @param con
      * @param rawCondition
      * @param rawConditionValues
+     * @throws
+     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public void delete(String nomtable, Connection con, String rawCondition, Object... rawConditionValues) {
+    public void delete(String nomtable, Connection con, String rawCondition, Object... rawConditionValues) throws DatabasePersistenceException {
         PreparedStatement ps = null;
         String sql;
         try {
@@ -503,8 +509,10 @@ public final class GenericRepo {
      * @param obj
      * @param nomtable
      * @param con
+     * @throws
+     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public void delete(Object obj, String nomtable, Connection con) {
+    public void delete(Object obj, String nomtable, Connection con) throws DatabasePersistenceException {
         PreparedStatement ps = null;
         String sql;
         Column annot;
@@ -574,7 +582,7 @@ public final class GenericRepo {
         }
     }
 
-    private void removeNullFields(List<Field> fields, Object obj) {
+    private void removeNullFields(List<Field> fields, Object obj) throws DatabasePersistenceException {
         try {
             Class instance = obj.getClass();
             Method m;

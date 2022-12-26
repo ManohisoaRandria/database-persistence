@@ -56,7 +56,7 @@ public class Utilitaire {
         return arg;
     }
 
-    public static String getNextVal(String nomSequence, Connection c) {
+    public static String getNextVal(String nomSequence, Connection c) throws SqlAndReflectException {
         String seq = null;
         String requete = " SELECT " + nomSequence + ".nextval as nb from Dual";
 
@@ -94,7 +94,7 @@ public class Utilitaire {
         return ret + seqValue;
     }
 
-    public static String getIdFromSequence(String sequence, Connection con, int length) throws DatabasePersistenceException {
+    public static String getIdFromSequence(String sequence, Connection con, int length) throws DatabasePersistenceException, SqlAndReflectException {
         return formatNumber(getNextVal(sequence, con), length);
     }
 
@@ -153,7 +153,7 @@ public class Utilitaire {
         }
     }
 
-    public static int countAll(String requette, Connection c) {
+    public static int countAll(String requette, Connection c) throws SqlAndReflectException {
         int seq = 0;
         String requete = " SELECT count(*) as nb from (" + requette + ")";
 

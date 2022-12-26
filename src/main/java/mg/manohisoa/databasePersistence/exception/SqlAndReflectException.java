@@ -9,7 +9,7 @@ package mg.manohisoa.databasePersistence.exception;
  *
  * @author 211407
  */
-public class SqlAndReflectException extends RuntimeException {
+public class SqlAndReflectException extends Exception {
 
     /**
      * Creates a new instance of <code>OtherReflectAndSqlException</code>

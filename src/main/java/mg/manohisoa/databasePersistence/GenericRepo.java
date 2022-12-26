@@ -14,7 +14,7 @@ import mg.manohisoa.databasePersistence.annotation.Cacheable;
 import mg.manohisoa.databasePersistence.annotation.Column;
 import mg.manohisoa.databasePersistence.cache.Cache;
 import mg.manohisoa.databasePersistence.exception.DatabasePersistenceException;
-import mg.manohisoa.databasePersistence.exception.OtherReflectAndSqlException;
+import mg.manohisoa.databasePersistence.exception.RepositoryException;
 import mg.manohisoa.databasePersistence.outil.Utilitaire;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -277,7 +277,7 @@ public final class GenericRepo {
                 | NoSuchMethodException
                 | InvocationTargetException
                 | SQLException | InstantiationException ex) {
-            throw new OtherReflectAndSqlException(ex.toString());
+            throw new RepositoryException(ex.toString());
         } finally {
             this.setIdentifierCache(null);
             if (this.autoResetParams) {
@@ -287,14 +287,14 @@ public final class GenericRepo {
                 try {
                     rs.close();
                 } catch (SQLException ex) {
-                    throw new OtherReflectAndSqlException(ex.toString());
+                    throw new RepositoryException(ex.toString());
                 }
             }
             if (ps != null) {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new OtherReflectAndSqlException(ex.toString());
+                    throw new RepositoryException(ex.toString());
                 }
             }
         }
@@ -361,7 +361,7 @@ public final class GenericRepo {
                 | SecurityException
                 | InvocationTargetException
                 | SQLException ex) {
-            throw new OtherReflectAndSqlException(ex.toString());
+            throw new RepositoryException(ex.toString());
         } finally {
             if (this.autoResetParams) {
                 this.resetAllParams();
@@ -370,7 +370,7 @@ public final class GenericRepo {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new OtherReflectAndSqlException(ex.toString());
+                    throw new RepositoryException(ex.toString());
                 }
             }
         }
@@ -437,7 +437,7 @@ public final class GenericRepo {
                 | NoSuchMethodException
                 | InvocationTargetException
                 | SQLException ex) {
-            throw new OtherReflectAndSqlException(ex.toString());
+            throw new RepositoryException(ex.toString());
         } finally {
             if (this.autoResetParams) {
                 this.resetAllParams();
@@ -446,7 +446,7 @@ public final class GenericRepo {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new OtherReflectAndSqlException(ex.toString());
+                    throw new RepositoryException(ex.toString());
                 }
             }
         }
@@ -479,7 +479,7 @@ public final class GenericRepo {
             ps.executeUpdate();
             removeFromCache(nomtable);
         } catch (SQLException ex) {
-            throw new OtherReflectAndSqlException(ex.toString());
+            throw new RepositoryException(ex.toString());
         } finally {
             if (this.autoResetParams) {
                 this.resetAllParams();
@@ -488,7 +488,7 @@ public final class GenericRepo {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new OtherReflectAndSqlException(ex.toString());
+                    throw new RepositoryException(ex.toString());
                 }
             }
         }
@@ -541,9 +541,9 @@ public final class GenericRepo {
             try {
                 con.rollback();
             } catch (SQLException ex1) {
-                throw new OtherReflectAndSqlException(ex.toString());
+                throw new RepositoryException(ex.toString());
             }
-            throw new OtherReflectAndSqlException(ex.toString());
+            throw new RepositoryException(ex.toString());
         } finally {
             if (this.autoResetParams) {
                 this.resetAllParams();
@@ -552,7 +552,7 @@ public final class GenericRepo {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new OtherReflectAndSqlException(ex.toString());
+                    throw new RepositoryException(ex.toString());
                 }
             }
         }
@@ -600,7 +600,7 @@ public final class GenericRepo {
                 | IllegalAccessException
                 | IllegalArgumentException
                 | InvocationTargetException ex) {
-            throw new OtherReflectAndSqlException(ex.toString());
+            throw new RepositoryException(ex.toString());
         }
     }
 

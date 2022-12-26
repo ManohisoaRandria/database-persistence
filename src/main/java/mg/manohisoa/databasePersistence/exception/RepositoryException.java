@@ -9,13 +9,13 @@ package mg.manohisoa.databasePersistence.exception;
  *
  * @author 211407
  */
-public class OtherReflectAndSqlException extends RuntimeException {
+public class RepositoryException extends RuntimeException {
 
     /**
      * Creates a new instance of <code>OtherReflectAndSqlException</code>
      * without detail message.
      */
-    public OtherReflectAndSqlException() {
+    public RepositoryException() {
     }
 
     /**
@@ -24,7 +24,7 @@ public class OtherReflectAndSqlException extends RuntimeException {
      *
      * @param msg the detail message.
      */
-    public OtherReflectAndSqlException(String msg) {
+    public RepositoryException(String msg) {
         super(msg);
     }
 }

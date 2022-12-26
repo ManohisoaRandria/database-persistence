@@ -20,7 +20,7 @@ import java.util.List;
 import mg.manohisoa.databasePersistence.annotation.Column;
 import mg.manohisoa.databasePersistence.annotation.Entity;
 import mg.manohisoa.databasePersistence.exception.DatabasePersistenceException;
-import mg.manohisoa.databasePersistence.exception.RepositoryException;
+import mg.manohisoa.databasePersistence.exception.SqlAndReflectException;
 import org.postgresql.util.PGInterval;
 
 public class Utilitaire {
@@ -66,7 +66,7 @@ public class Utilitaire {
                 break;
             }
         } catch (SQLException ex) {
-            throw new RepositoryException(ex.toString());
+            throw new SqlAndReflectException(ex.toString());
         }
         return seq;
     }
@@ -83,7 +83,7 @@ public class Utilitaire {
         return result;
     }
 
-    public static String formatNumber(String seqValue, int ordre) throws DatabasePersistenceException {
+    public static String formatNumber(String seqValue, int ordre) {
         if (seqValue.split("").length > ordre) {
             throw new DatabasePersistenceException("Formatage de séquence impossible !");
         }
@@ -94,7 +94,7 @@ public class Utilitaire {
         return ret + seqValue;
     }
 
-    public static String getIdFromSequence(String sequence, Connection con, int length) throws DatabasePersistenceException {
+    public static String getIdFromSequence(String sequence, Connection con, int length) {
         return formatNumber(getNextVal(sequence, con), length);
     }
 
@@ -163,7 +163,7 @@ public class Utilitaire {
                 break;
             }
         } catch (SQLException ex) {
-            throw new RepositoryException(ex.toString());
+            throw new SqlAndReflectException(ex.toString());
         }
         return seq;
     }
@@ -209,7 +209,7 @@ public class Utilitaire {
         return (Column) field.getAnnotation(Column.class);
     }
 
-    public static void verifyRawSqlCount(String rawSql, Object... rawSqlValues) throws DatabasePersistenceException {
+    public static void verifyRawSqlCount(String rawSql, Object... rawSqlValues) {
         if (rawSql != null) {
             int countRawParameters = countCharacter('?', rawSql);
             if (rawSqlValues.length != countRawParameters) {
@@ -255,10 +255,8 @@ public class Utilitaire {
      *
      * @param instance
      * @param nomTable
-     * @throws
-     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public static void verifyTable(Class instance, String nomTable) throws DatabasePersistenceException {
+    public static void verifyTable(Class instance, String nomTable) {
 
         if (instance.getAnnotation(Entity.class) == null) {
             throw new DatabasePersistenceException("Aucune Annotation de Entite Spécifié !");
@@ -353,10 +351,8 @@ public class Utilitaire {
      *
      * @param instance
      * @return
-     * @throws
-     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public static List<Field> getAllField(Class instance) throws DatabasePersistenceException {
+    public static List<Field> getAllField(Class instance) {
         Class superClasse;
         List<Field> field = new ArrayList();
         superClasse = instance;

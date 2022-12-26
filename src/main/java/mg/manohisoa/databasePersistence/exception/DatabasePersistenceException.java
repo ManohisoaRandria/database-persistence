@@ -9,7 +9,7 @@ package mg.manohisoa.databasePersistence.exception;
  *
  * @author 211407
  */
-public class DatabasePersistenceException extends Exception {
+public class DatabasePersistenceException extends RuntimeException {
 
     /**
      * Creates a new instance of <code>DatabasePersistenceException</code>

@@ -14,7 +14,7 @@ import mg.manohisoa.databasePersistence.annotation.Cacheable;
 import mg.manohisoa.databasePersistence.annotation.Column;
 import mg.manohisoa.databasePersistence.cache.Cache;
 import mg.manohisoa.databasePersistence.exception.DatabasePersistenceException;
-import mg.manohisoa.databasePersistence.exception.RepositoryException;
+import mg.manohisoa.databasePersistence.exception.SqlAndReflectException;
 import mg.manohisoa.databasePersistence.outil.Utilitaire;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -208,7 +208,7 @@ public final class GenericRepo {
      * @throws
      * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public <E> List<E> find(String tableName, E critere, String rawSql, Connection con, Object... rawSqlValues) throws DatabasePersistenceException {
+    public <E> List<E> find(String tableName, E critere, String rawSql, Connection con, Object... rawSqlValues) {
         List<E> result = null;
 
         ResultSet rs = null;
@@ -279,7 +279,7 @@ public final class GenericRepo {
                 | NoSuchMethodException
                 | InvocationTargetException
                 | SQLException | InstantiationException ex) {
-            throw new RepositoryException(ex.toString());
+            throw new SqlAndReflectException(ex.toString());
         } finally {
             this.setIdentifierCache(null);
             if (this.autoResetParams) {
@@ -289,14 +289,14 @@ public final class GenericRepo {
                 try {
                     rs.close();
                 } catch (SQLException ex) {
-                    throw new RepositoryException(ex.toString());
+                    throw new SqlAndReflectException(ex.toString());
                 }
             }
             if (ps != null) {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new RepositoryException(ex.toString());
+                    throw new SqlAndReflectException(ex.toString());
                 }
             }
         }
@@ -310,10 +310,8 @@ public final class GenericRepo {
      * @param obj
      * @param tableName
      * @param con
-     * @throws
-     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public void insert(Object obj, String tableName, Connection con) throws DatabasePersistenceException {
+    public void insert(Object obj, String tableName, Connection con) {
         String requete, colonne;
         Column annot;
         PreparedStatement ps = null;
@@ -365,7 +363,7 @@ public final class GenericRepo {
                 | SecurityException
                 | InvocationTargetException
                 | SQLException ex) {
-            throw new RepositoryException(ex.toString());
+            throw new SqlAndReflectException(ex.toString());
         } finally {
             if (this.autoResetParams) {
                 this.resetAllParams();
@@ -374,7 +372,7 @@ public final class GenericRepo {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new RepositoryException(ex.toString());
+                    throw new SqlAndReflectException(ex.toString());
                 }
             }
         }
@@ -389,10 +387,8 @@ public final class GenericRepo {
      * @param afterWhere
      * @param con
      * @param afterWhereValues
-     * @throws
-     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public void update(Object obj, String tableName, Connection con, String afterWhere, Object... afterWhereValues) throws DatabasePersistenceException {
+    public void update(Object obj, String tableName, Connection con, String afterWhere, Object... afterWhereValues) {
         PreparedStatement ps = null;
         Method m;
         Column annot;
@@ -443,7 +439,7 @@ public final class GenericRepo {
                 | NoSuchMethodException
                 | InvocationTargetException
                 | SQLException ex) {
-            throw new RepositoryException(ex.toString());
+            throw new SqlAndReflectException(ex.toString());
         } finally {
             if (this.autoResetParams) {
                 this.resetAllParams();
@@ -452,7 +448,7 @@ public final class GenericRepo {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new RepositoryException(ex.toString());
+                    throw new SqlAndReflectException(ex.toString());
                 }
             }
         }
@@ -465,10 +461,8 @@ public final class GenericRepo {
      * @param con
      * @param rawCondition
      * @param rawConditionValues
-     * @throws
-     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public void delete(String nomtable, Connection con, String rawCondition, Object... rawConditionValues) throws DatabasePersistenceException {
+    public void delete(String nomtable, Connection con, String rawCondition, Object... rawConditionValues) {
         PreparedStatement ps = null;
         String sql;
         try {
@@ -487,7 +481,7 @@ public final class GenericRepo {
             ps.executeUpdate();
             removeFromCache(nomtable);
         } catch (SQLException ex) {
-            throw new RepositoryException(ex.toString());
+            throw new SqlAndReflectException(ex.toString());
         } finally {
             if (this.autoResetParams) {
                 this.resetAllParams();
@@ -496,7 +490,7 @@ public final class GenericRepo {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new RepositoryException(ex.toString());
+                    throw new SqlAndReflectException(ex.toString());
                 }
             }
         }
@@ -509,10 +503,8 @@ public final class GenericRepo {
      * @param obj
      * @param nomtable
      * @param con
-     * @throws
-     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public void delete(Object obj, String nomtable, Connection con) throws DatabasePersistenceException {
+    public void delete(Object obj, String nomtable, Connection con) {
         PreparedStatement ps = null;
         String sql;
         Column annot;
@@ -551,9 +543,9 @@ public final class GenericRepo {
             try {
                 con.rollback();
             } catch (SQLException ex1) {
-                throw new RepositoryException(ex.toString());
+                throw new SqlAndReflectException(ex.toString());
             }
-            throw new RepositoryException(ex.toString());
+            throw new SqlAndReflectException(ex.toString());
         } finally {
             if (this.autoResetParams) {
                 this.resetAllParams();
@@ -562,7 +554,7 @@ public final class GenericRepo {
                 try {
                     ps.close();
                 } catch (SQLException ex) {
-                    throw new RepositoryException(ex.toString());
+                    throw new SqlAndReflectException(ex.toString());
                 }
             }
         }
@@ -582,7 +574,7 @@ public final class GenericRepo {
         }
     }
 
-    private void removeNullFields(List<Field> fields, Object obj) throws DatabasePersistenceException {
+    private void removeNullFields(List<Field> fields, Object obj) {
         try {
             Class instance = obj.getClass();
             Method m;
@@ -610,7 +602,7 @@ public final class GenericRepo {
                 | IllegalAccessException
                 | IllegalArgumentException
                 | InvocationTargetException ex) {
-            throw new RepositoryException(ex.toString());
+            throw new SqlAndReflectException(ex.toString());
         }
     }
 

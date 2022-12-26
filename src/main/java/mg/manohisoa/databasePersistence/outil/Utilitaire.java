@@ -60,7 +60,7 @@ public class Utilitaire {
         String seq = null;
         String requete = " SELECT " + nomSequence + ".nextval as nb from Dual";
 
-        try (Statement st2 = c.createStatement(); ResultSet rs2 = st2.executeQuery(requete)) {
+        try ( Statement st2 = c.createStatement();  ResultSet rs2 = st2.executeQuery(requete)) {
             while (rs2.next()) {
                 seq = rs2.getString("nb");
                 break;
@@ -83,9 +83,9 @@ public class Utilitaire {
         return result;
     }
 
-    public static String formatNumber(String seqValue, int ordre) {
+    public static String formatNumber(String seqValue, int ordre) throws DatabasePersistenceException {
         if (seqValue.split("").length > ordre) {
-            throw new DatabasePersistenceException("Format impossible !");
+            throw new DatabasePersistenceException("Formatage de séquence impossible !");
         }
         String ret = "";
         for (int i = 0; i < ordre - seqValue.split("").length; i++) {
@@ -94,7 +94,7 @@ public class Utilitaire {
         return ret + seqValue;
     }
 
-    public static String getIdFromSequence(String sequence, Connection con, int length) {
+    public static String getIdFromSequence(String sequence, Connection con, int length) throws DatabasePersistenceException {
         return formatNumber(getNextVal(sequence, con), length);
     }
 
@@ -157,7 +157,7 @@ public class Utilitaire {
         int seq = 0;
         String requete = " SELECT count(*) as nb from (" + requette + ")";
 
-        try (Statement st2 = c.createStatement(); ResultSet rs2 = st2.executeQuery(requete)) {
+        try ( Statement st2 = c.createStatement();  ResultSet rs2 = st2.executeQuery(requete)) {
             while (rs2.next()) {
                 seq = rs2.getInt("nb");
                 break;
@@ -209,7 +209,7 @@ public class Utilitaire {
         return (Column) field.getAnnotation(Column.class);
     }
 
-    public static void verifyRawSqlCount(String rawSql, Object... rawSqlValues) {
+    public static void verifyRawSqlCount(String rawSql, Object... rawSqlValues) throws DatabasePersistenceException {
         if (rawSql != null) {
             int countRawParameters = countCharacter('?', rawSql);
             if (rawSqlValues.length != countRawParameters) {
@@ -255,8 +255,10 @@ public class Utilitaire {
      *
      * @param instance
      * @param nomTable
+     * @throws
+     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public static void verifyTable(Class instance, String nomTable) {
+    public static void verifyTable(Class instance, String nomTable) throws DatabasePersistenceException {
 
         if (instance.getAnnotation(Entity.class) == null) {
             throw new DatabasePersistenceException("Aucune Annotation de Entite Spécifié !");
@@ -351,8 +353,10 @@ public class Utilitaire {
      *
      * @param instance
      * @return
+     * @throws
+     * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      */
-    public static List<Field> getAllField(Class instance) {
+    public static List<Field> getAllField(Class instance) throws DatabasePersistenceException {
         Class superClasse;
         List<Field> field = new ArrayList();
         superClasse = instance;

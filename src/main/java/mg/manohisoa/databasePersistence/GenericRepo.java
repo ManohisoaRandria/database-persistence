@@ -226,6 +226,7 @@ public final class GenericRepo {
 
             List<Field> fields = Utilitaire.getAllField(instance);
             removeNullFields(fields, critere);
+
             sql += Utilitaire.buildRequestBasedOnField(fields);
             if (rawSql != null && !rawSql.trim().equals("")) {
                 if (!rawSql.trim().toUpperCase().startsWith("AND ")) {
@@ -234,7 +235,6 @@ public final class GenericRepo {
                 sql += rawSql;
             }
 
-            int last = Utilitaire.setPreparedStatementValue(fields, critere, instance, ps, rawSqlValues) + 1;
             if (this.paginate) {
                 if (!sql.toUpperCase().contains("ORDER")) {
                     throw new DatabasePersistenceException("La requête doit comporter une condition de tri (ORDER BY) pour une pagination correcte");
@@ -245,12 +245,14 @@ public final class GenericRepo {
                 paginationRequest.append(" ) a WHERE ROWNUM <= ? * ?)");
                 paginationRequest.append(" WHERE R__ >= (? - 1) * ? + 1");
                 ps = con.prepareStatement(paginationRequest.toString(), ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
+                int last = Utilitaire.setPreparedStatementValue(fields, critere, instance, ps, rawSqlValues) + 1;
                 ps.setInt(last, pageNum);
                 ps.setInt(last + 1, pageSize);
                 ps.setInt(last + 2, pageNum);
                 ps.setInt(last + 3, pageSize);
             } else {
                 ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
+                Utilitaire.setPreparedStatementValue(fields, critere, instance, ps, rawSqlValues);
             }
             String req = ps.toString();
             LOGGER.debug("SQL: {}", req);

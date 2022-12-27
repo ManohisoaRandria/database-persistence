@@ -22,8 +22,12 @@ import mg.manohisoa.databasePersistence.annotation.Entity;
 import mg.manohisoa.databasePersistence.exception.DatabasePersistenceException;
 import mg.manohisoa.databasePersistence.exception.SqlAndReflectException;
 import org.postgresql.util.PGInterval;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Utilitaire {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(Utilitaire.class);
 
     public final static String REGEX_EMAIL = "^[\\w-_\\.+]*[\\w-_\\.]\\@([\\w]+\\.)+[\\w]+[\\w]$";
     public static final int DEFAULT_CACHE_DURATION = 1440;//in minutes
@@ -181,6 +185,7 @@ public class Utilitaire {
             setPreparedStatement(ps, fields.get(i).getType().getName(), i + 1, m.invoke(critere, new Object[0]));
             last++;
         }
+
         for (int i = 0; i < rawSqlValues.length; i++) {
             setPreparedStatement(ps, rawSqlValues[i].getClass().getTypeName(), fields.size() + i + 1, rawSqlValues[i]);
             last++;

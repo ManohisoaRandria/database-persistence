@@ -209,7 +209,7 @@ public final class GenericRepo {
      * mg.manohisoa.databasePersistence.exception.DatabasePersistenceException
      * @throws mg.manohisoa.databasePersistence.exception.SqlAndReflectException
      */
-    public <E> List<E> find(String tableName, E critere, String rawSql, Connection con, Object... rawSqlValues) throws DatabasePersistenceException, SqlAndReflectException {
+    public <E> List<E> find(String tableName, E critere, Connection con, String rawSql, Object... rawSqlValues) throws DatabasePersistenceException, SqlAndReflectException {
         List<E> result = null;
 
         ResultSet rs = null;

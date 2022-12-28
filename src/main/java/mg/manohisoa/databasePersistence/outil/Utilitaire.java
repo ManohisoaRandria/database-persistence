@@ -172,7 +172,7 @@ public class Utilitaire {
         return seq;
     }
 
-    public static <E> int setPreparedStatementValue(List<Field> fields, E critere, Class instance, PreparedStatement ps, Object... rawSqlValues)
+    public static <E> int setPreparedStatementValue(List<Field> fields, int fieldsSize, E critere, Class instance, PreparedStatement ps, Object... rawSqlValues)
             throws NoSuchMethodException,
             IllegalAccessException,
             IllegalArgumentException,
@@ -180,14 +180,14 @@ public class Utilitaire {
             SQLException {
         Method m;
         int last = 1;
-        for (int i = 0; i < fields.size(); i++) {
+        for (int i = 0; i < fieldsSize; i++) {
             m = instance.getMethod("get" + Utilitaire.capitalize(fields.get(i).getName()), new Class[0]);
             setPreparedStatement(ps, fields.get(i).getType().getName(), i + 1, m.invoke(critere, new Object[0]));
             last++;
         }
 
         for (int i = 0; i < rawSqlValues.length; i++) {
-            setPreparedStatement(ps, rawSqlValues[i].getClass().getTypeName(), fields.size() + i + 1, rawSqlValues[i]);
+            setPreparedStatement(ps, rawSqlValues[i].getClass().getTypeName(), fieldsSize + i + 1, rawSqlValues[i]);
             last++;
         }
         return last;

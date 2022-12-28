@@ -226,8 +226,12 @@ public final class GenericRepo {
 
             List<Field> fields = Utilitaire.getAllField(instance);
             removeNullFields(fields, critere);
+            int fieldCount = fields.size();
 
             sql += Utilitaire.buildRequestBasedOnField(fields);
+
+            fields = Utilitaire.getAllField(instance);
+
             if (rawSql != null && !rawSql.trim().equals("")) {
                 if (!rawSql.trim().toUpperCase().startsWith("AND ")) {
                     rawSql = " AND " + rawSql;
@@ -245,14 +249,14 @@ public final class GenericRepo {
                 paginationRequest.append(" ) a WHERE ROWNUM <= ? * ?)");
                 paginationRequest.append(" WHERE R__ >= (? - 1) * ? + 1");
                 ps = con.prepareStatement(paginationRequest.toString(), ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-                int last = Utilitaire.setPreparedStatementValue(fields, critere, instance, ps, rawSqlValues) + 1;
+                int last = Utilitaire.setPreparedStatementValue(fields, fieldCount, critere, instance, ps, rawSqlValues) + 1;
                 ps.setInt(last, pageNum);
                 ps.setInt(last + 1, pageSize);
                 ps.setInt(last + 2, pageNum);
                 ps.setInt(last + 3, pageSize);
             } else {
                 ps = con.prepareStatement(sql, ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_UPDATABLE);
-                Utilitaire.setPreparedStatementValue(fields, critere, instance, ps, rawSqlValues);
+                Utilitaire.setPreparedStatementValue(fields, fieldCount, critere, instance, ps, rawSqlValues);
             }
             String req = ps.toString();
             LOGGER.debug("SQL: {}", req);

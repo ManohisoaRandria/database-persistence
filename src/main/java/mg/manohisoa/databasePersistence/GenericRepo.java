@@ -346,7 +346,6 @@ public class GenericRepo {
                 nbcolonne++;
             }
             ps.executeUpdate();
-
             refreshCache(tableName);
         } catch (Exception e) {
             throw e;

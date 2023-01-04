@@ -234,7 +234,14 @@ public final class GenericRepo {
 
             if (rawSql != null && !rawSql.trim().equals("")) {
                 if (!rawSql.trim().toUpperCase().startsWith("AND ")) {
-                    rawSql = " AND " + rawSql;
+                    if (!rawSql.trim().toUpperCase().startsWith("ORDER ")
+                            && !rawSql.trim().toUpperCase().startsWith("GROUP ")
+                            && !rawSql.trim().toUpperCase().startsWith("LIMIT ")) {
+                        rawSql = " AND " + rawSql;
+                    } else {
+                        rawSql = " AND 1=1 " + rawSql;
+                    }
+
                 }
                 sql += rawSql;
             }

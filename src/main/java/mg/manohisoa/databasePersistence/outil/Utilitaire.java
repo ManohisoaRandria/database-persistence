@@ -399,41 +399,55 @@ public class Utilitaire {
             IllegalAccessException,
             IllegalArgumentException,
             InvocationTargetException {
-        switch (nomtypefield) {
-            case "java.lang.String":
-                m.invoke(obj, rs.getString(colonne));
-                break;
-            case "java.lang.Double":
-            case "double":
-                m.invoke(obj, rs.getDouble(colonne));
-                break;
-            case "int":
-            case "java.lang.Integer":
-                m.invoke(obj, rs.getInt(colonne));
-                break;
-            case "org.postgresql.util.PGInterval":
-                m.invoke(obj, (PGInterval) rs.getObject(colonne));
-                break;
-            case "java.sql.Date":
-            case "java.util.Date":
-                m.invoke(obj, rs.getDate(colonne));
-                break;
-            case "boolean":
-                m.invoke(obj, rs.getBoolean(colonne));
-                break;
-            case "float":
-                m.invoke(obj, rs.getFloat(colonne));
-                break;
-            case "java.sql.Timestamp":
-                m.invoke(obj, rs.getTimestamp(colonne));
-                break;
-            case "java.sql.Time":
-                m.invoke(obj, rs.getTime(colonne));
-                break;
-            default:
-                m.invoke(obj, rs.getObject(colonne));
-                break;
+        if (isThere(rs, colonne)) {
+            switch (nomtypefield) {
+                case "java.lang.String":
+                    m.invoke(obj, rs.getString(colonne));
+                    break;
+                case "java.lang.Double":
+                case "double":
+                    m.invoke(obj, rs.getDouble(colonne));
+                    break;
+                case "int":
+                case "java.lang.Integer":
+                    m.invoke(obj, rs.getInt(colonne));
+                    break;
+                case "org.postgresql.util.PGInterval":
+                    m.invoke(obj, (PGInterval) rs.getObject(colonne));
+                    break;
+                case "java.sql.Date":
+                case "java.util.Date":
+                    m.invoke(obj, rs.getDate(colonne));
+                    break;
+                case "boolean":
+                    m.invoke(obj, rs.getBoolean(colonne));
+                    break;
+                case "float":
+                    m.invoke(obj, rs.getFloat(colonne));
+                    break;
+                case "java.sql.Timestamp":
+                    m.invoke(obj, rs.getTimestamp(colonne));
+                    break;
+                case "java.sql.Time":
+                    m.invoke(obj, rs.getTime(colonne));
+                    break;
+                default:
+                    m.invoke(obj, rs.getObject(colonne));
+                    break;
+            }
         }
+
+    }
+
+    private static boolean isThere(ResultSet rs, String column) {
+        try {
+            rs.findColumn(column);
+            return true;
+        } catch (SQLException sqlex) {
+            LOGGER.debug("column doesn't exist {}", column);
+        }
+
+        return false;
     }
 
     //mime types

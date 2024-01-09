@@ -839,6 +839,7 @@ public class GenericRepo {
      * @throws Exception
      */
     private static void getAndSetResult(Object obj, ResultSet rs, Method m, String colonne, String nomtypefield) throws Exception {
+
         switch (nomtypefield) {
             case "java.lang.String":
                 m.invoke(obj, rs.getString(colonne));

@@ -2,7 +2,7 @@
 
 # Java ORM Framework
 
-A **lightweight and updated Java ORM (Object-Relational Mapping) framework**, updated from the previous version for **improved performance and usability**.
+A **lightweight  Java ORM (Object-Relational Mapping) framework**, updated from the previous version for **improved performance and usability**.
 
 **Features:**
 

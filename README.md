@@ -16,6 +16,8 @@ A **lightweight  Java ORM (Object-Relational Mapping) framework**, updated from 
 
 - **Tested on**: Oracle and PostgreSQL
 
+- **Supported Java version**: Java 11
+
 Designed to simplify database access in Java applications while providing **efficient caching and modern ORM functionality**.
 
 ## Main Source code
